@@ -1,0 +1,81 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  repo-guards:
+    name: Repo guards
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Forbid merge conflict markers
+        run: |
+          if git grep -n '^<<<<<<< \|^=======\|^>>>>>>> ' -- ':!*.md' 2>/dev/null; then
+            echo "Merge conflict markers found"
+            exit 1
+          fi
+
+      - name: Forbid committed .env files
+        run: |
+          if git ls-files '*.env' ':!:.env.example' ':!:**/.env.example' | grep -q .; then
+            echo "Committed .env files are not allowed"
+            git ls-files '*.env'
+            exit 1
+          fi
+          if find . -name '.env' -not -path './.git/*' | grep -q .; then
+            echo "Working tree contains .env"
+            find . -name '.env' -not -path './.git/*'
+            exit 1
+          fi
+
+      - name: Forbid large files (>5MB)
+        run: |
+          MAX=5242880
+          found=0
+          while IFS= read -r f; do
+            [ -z "$f" ] && continue
+            size=$(wc -c < "$f" | tr -d ' ')
+            if [ "$size" -gt "$MAX" ]; then
+              echo "Large file: $f ($size bytes)"
+              found=1
+            fi
+          done < <(git ls-files)
+          [ "$found" -eq 0 ] || exit 1
+
+      - name: Repo layout guard
+        run: bash .github/scripts/check-repo-layout.sh
+
+  markdown:
+    name: Markdown (structural)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: markdownlint-cli2
+        run: npx --yes markdownlint-cli2 "**/*.md" "#node_modules"
+
+  secrets:
+    name: Secret scan (gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

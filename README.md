@@ -237,7 +237,7 @@ See `docs/SECURITY.md` for threat model and implementation rules.
 
 ## License
 
-TBD (choose a license before public release).
+[MIT](LICENSE)
 
 ---
 

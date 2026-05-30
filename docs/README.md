@@ -54,6 +54,8 @@ Then use [DEVELOPMENT_GUIDE.md](DEVELOPMENT_GUIDE.md) for day-to-day workflow an
 
 ---
 
-## ADRs (planned)
+## ADRs
 
-Architecture decision records live under `docs/adr/` (create as decisions are made).
+- [adr/README.md](adr/README.md)
+- [adr/ADR-0001-template.md](adr/ADR-0001-template.md)
+- [adr/ADR-0002-repo-foundation-bootstrap.md](adr/ADR-0002-repo-foundation-bootstrap.md)
