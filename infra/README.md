@@ -14,4 +14,9 @@ Planned layout (see [docs/FILE_STRUCTURE.md](../docs/FILE_STRUCTURE.md)):
 | `monitoring/` | Prometheus, Grafana, Loki, Tempo configs |
 | `scripts/` | Operational helpers |
 
-No compose or IaC files exist yet. Next milestone: `infra/compose/dev` per [docs/ARCHITECTURE.md](../docs/ARCHITECTURE.md).
+**Available now:**
+
+- `compose/dev/` — [compose/dev/README.md](compose/dev/README.md) (Postgres, Redis Stack, ClickHouse, MinIO)
+- `compose/test/` — minimal Postgres + Redis for future integration tests
+
+Other infra (helm, terraform, monitoring) is not implemented yet.
