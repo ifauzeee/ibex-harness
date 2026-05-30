@@ -26,7 +26,7 @@ This repository is a monorepo containing all services, packages, and infrastruct
 ### 1) Clone
 
 ```bash
-git clone https://github.com/<your-org>/ibex-harness.git
+git clone https://github.com/Rick1330/ibex-harness.git
 cd ibex-harness
 ```
 
