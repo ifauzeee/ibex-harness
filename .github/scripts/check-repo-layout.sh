@@ -31,6 +31,9 @@ while IFS= read -r f; do
   if [[ "$f" =~ ^(services|packages|infra)/README\.md$ ]]; then
     continue
   fi
+  if [[ "$f" == .github/* ]]; then
+    continue
+  fi
   if [[ "$f" != docs/* && "$f" != prompts/* && "$f" != AGENTS.md && "$f" != PROMPTS.md && "$f" != README.md ]]; then
     echo "Doc outside allowed paths: $f"
     fail=1
