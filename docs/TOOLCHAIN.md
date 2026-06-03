@@ -18,7 +18,7 @@ make help
 | --- | --- | --- |
 | Git | 2.40+ | Source control and PR workflow |
 | Docker Engine + Docker Compose | Docker 24+, Compose v2 | Local Postgres, Redis, ClickHouse, and MinIO |
-| Go | 1.21+ | Go services (`auth`, `proxy`, future CLI) |
+| Go | 1.22+ | Go services (`auth`, `proxy`, future CLI) |
 | GNU Make | any POSIX `make` implementation | Canonical command surface (`Makefile`) used by developers and CI; on Windows prefer running via Git Bash or install a compatible `make` implementation |
 | Node.js | 18+ | `markdownlint-cli2` and future dashboard |
 | Python | 3.11+ | Future Python services and optional tooling |
@@ -128,7 +128,7 @@ Expected:
 - `git --version` prints Git `2.40` or newer.
 - `docker version` reports a reachable Docker server.
 - `docker compose version` prints Compose `v2...`.
-- `go version` prints `go1.21` or newer.
+- `go version` prints `go1.22` or newer.
 - `node --version` prints `v18...` or newer.
 - `python --version` prints `3.11...` or newer.
 - `buf --version` prints `1.47...` or newer.
@@ -166,6 +166,20 @@ Start local dependencies:
 ```bash
 make compose-dev-up
 make compose-dev-down
+```
+
+Apply Postgres schema (after compose is healthy):
+
+```bash
+make db-migrate
+make db-version
+```
+
+Integration tests for migrations (requires [test compose](../../infra/compose/test/docker-compose.yml) on port 5433):
+
+```bash
+make compose-test-up
+go test -tags=integration ./infra/migrations/postgres/...
 ```
 
 ---

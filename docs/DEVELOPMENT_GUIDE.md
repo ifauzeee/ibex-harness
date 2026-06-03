@@ -102,7 +102,7 @@ A new contributor should be able to get productive in **≤ 1 hour**.
 
 - Docker + Docker Compose
 - GNU Make
-- Go 1.21+
+- Go 1.22+
 - Python 3.11+
 - Node.js 18+
 - Buf CLI
@@ -146,10 +146,16 @@ docker compose -f infra/compose/dev/docker-compose.yml up -d
 
 ### 4.3 Migrations and seed
 
+After local infra is running:
+
 ```bash
+make compose-dev-up
 make db-migrate
-make db-seed
 ```
+
+Re-running `make db-migrate` is idempotent (no pending migrations). Roll back one step in dev only: `make db-migrate-down`. Check version: `make db-version`.
+
+`make db-seed` is planned for a later milestone (dev org/user/agent seed data).
 
 ### 4.4 Run services
 
