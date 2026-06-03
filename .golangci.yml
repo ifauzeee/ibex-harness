@@ -1,17 +1,26 @@
 version: "2"
 run:
   timeout: 3m
+formatters:
+  enable:
+    - gofmt
+    - goimports
 linters:
   enable:
     - govet
-    - gofmt
-    - goimports
     - staticcheck
     - revive
     - errcheck
   disable:
     - gocyclo
     - prealloc
+  settings:
+    revive:
+      rules:
+        - name: package-comments
+          disabled: true
+        - name: exported
+          disabled: true
 issues:
   max-issues-per-linter: 0
   max-same-issues: 0

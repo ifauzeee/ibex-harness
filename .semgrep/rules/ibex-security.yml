@@ -1,0 +1,88 @@
+rules:
+  - id: ibex-clickhouse-missing-org-filter
+    languages: [go, python, typescript, javascript]
+    severity: ERROR
+    message: >-
+      ClickHouse query missing org_id filter — cross-tenant data leak risk.
+      See .cursorrules §4 and docs/SECURITY.md.
+    patterns:
+      - pattern-either:
+          - pattern: |
+              $CLIENT.Query($QUERY, ...)
+          - pattern: |
+              $CLIENT.Exec($QUERY, ...)
+          - pattern: |
+              clickhouse_query($QUERY, ...)
+    metavariable-pattern:
+      metavariable: $QUERY
+      patterns:
+        - pattern-not-regex: (?i)org_id
+    paths:
+      include:
+        - services/**/clickhouse/
+        - packages/**/clickhouse/
+
+  - id: ibex-no-secrets-in-logs
+    languages: [python]
+    severity: ERROR
+    message: "Potential secret logged. See .cursorrules §5."
+    pattern-either:
+      - pattern: |
+          logger.$METHOD($MSG, "$SENSITIVE_KEY", $VAL)
+      - pattern: |
+          logging.$METHOD($MSG, "$SENSITIVE_KEY", $VAL)
+    metavariable-regex:
+      metavariable: $SENSITIVE_KEY
+      regex: (?i)^(token|password|secret|api_key|apikey|api-key|authorization|credential)$
+
+  - id: ibex-memory-content-direct-prompt-fstring
+    languages: [python]
+    severity: WARNING
+    message: >-
+      Memory content injected directly into prompt without delimiter isolation.
+      Prompt injection risk. See .cursorrules §6.
+    patterns:
+      - pattern: |
+          $PROMPT = f"...{$MEMORY}..."
+      - metavariable-regex:
+          metavariable: $MEMORY
+          regex: (?i)^(memory|memory_content|retrieved_memories)$
+      - metavariable-regex:
+          metavariable: $PROMPT
+          regex: (?i)^(prompt|messages|system_prompt)$
+
+  - id: ibex-memory-content-direct-prompt-concat
+    languages: [python, typescript, javascript]
+    severity: WARNING
+    message: >-
+      Memory content injected directly into prompt without delimiter isolation.
+      Prompt injection risk. See .cursorrules §6.
+    patterns:
+      - pattern: |
+          $PROMPT = ... + $MEMORY + ...
+      - metavariable-regex:
+          metavariable: $MEMORY
+          regex: (?i)^(memory|memory_content|retrieved_memories)$
+      - metavariable-regex:
+          metavariable: $PROMPT
+          regex: (?i)^(prompt|messages|system_prompt)$
+
+  - id: ibex-no-raw-sql-format
+    languages: [python]
+    severity: ERROR
+    message: "SQL must be parameterized. No string formatting in queries. See .cursorrules §5."
+    pattern-either:
+      - patterns:
+          - pattern: |
+              f"...{$VAR}..."
+          - metavariable-regex:
+              metavariable: $VAR
+              regex: (?i).*(select|insert|update|delete|from|where).*
+      - patterns:
+          - pattern: |
+              "...".format(...)
+          - pattern: |
+              "...".format($VAR, ...)
+    paths:
+      include:
+        - services/
