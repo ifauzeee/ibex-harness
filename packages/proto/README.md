@@ -27,10 +27,27 @@ buf breaking --against "https://github.com/Rick1330/ibex-harness.git#branch=main
 
 # Generate stubs (local only; output under gen/)
 buf generate
+
+# Or from repository root:
+make proto-gen
 ```
+
+`buf generate` emits Go messages and gRPC stubs (`protocolbuffers/go` + `grpc/go`) under `gen/go/`. Generated files are **not committed** — see [ADR-0004](../../docs/adr/ADR-0004-protobuf-and-codegen-policy.md).
+
+## Contract tests
+
+From repository root:
+
+```bash
+make proto-test              # unit: ADR-0006 descriptor assertions (no buf generate)
+make proto-test-integration  # integration: buf generate + gRPC stub smoke (requires buf)
+```
+
+CI runs both in the `proto-contract` job (ephemeral `buf generate`; `gen/` must not appear in git).
 
 ## Contracts
 
 | Package | Service | Source doc |
 |---------|---------|------------|
 | `ibex.context.v1` | `ContextAssemblyService` | [API_DOCUMENTATION.md](../../docs/API_DOCUMENTATION.md) (gRPC section) |
+| `ibex.auth.v1` | `AuthService` (`ValidateToken`) | [ADR-0006](../../docs/adr/ADR-0006-auth-proto-contract.md) |
