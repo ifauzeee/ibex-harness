@@ -11,6 +11,7 @@ import (
 	"github.com/Rick1330/ibex-harness/services/auth/internal/repository"
 	"github.com/Rick1330/ibex-harness/services/auth/internal/service"
 	"github.com/Rick1330/ibex-harness/services/auth/internal/token"
+	"github.com/google/uuid"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -22,10 +23,25 @@ type Server struct {
 	validator    *token.Validator
 	tokenService *service.TokenService
 	metrics      *metrics.Metrics
+	agentsStore  AgentStore
 }
 
-func NewServer(validator *token.Validator, tokenSvc *service.TokenService, m *metrics.Metrics) *Server {
-	return &Server{validator: validator, tokenService: tokenSvc, metrics: m}
+type AgentStore interface {
+	GetByIDAndOrg(ctx context.Context, agentID, orgID uuid.UUID) (*repository.AgentRecord, error)
+}
+
+func NewServer(
+	validator *token.Validator,
+	tokenSvc *service.TokenService,
+	agentsStore AgentStore,
+	m *metrics.Metrics,
+) *Server {
+	return &Server{
+		validator:    validator,
+		tokenService: tokenSvc,
+		metrics:      m,
+		agentsStore:  agentsStore,
+	}
 }
 
 func (s *Server) ValidateToken(ctx context.Context, req *authv1.ValidateTokenRequest) (*authv1.ValidateTokenResponse, error) {
@@ -80,7 +96,8 @@ func (s *Server) RevokeToken(ctx context.Context, req *authv1.RevokeTokenRequest
 	if req.RevokeReason != nil {
 		reason = req.RevokeReason
 	}
-	err := s.tokenService.RevokeToken(ctx, req.GetOrgId(), req.GetTokenId(), caller.TokenID, reason)
+	// revoked_by references ibex_core.users (M1.1.7 FK); use caller user_id when present.
+	err := s.tokenService.RevokeToken(ctx, req.GetOrgId(), req.GetTokenId(), caller.UserID, reason)
 	if err != nil {
 		if errors.Is(err, repository.ErrNotFound) {
 			return nil, status.Error(codes.NotFound, "token not found")
@@ -103,5 +120,44 @@ func (s *Server) ListTokens(ctx context.Context, req *authv1.ListTokensRequest) 
 	return &authv1.ListTokensResponse{
 		Tokens:     service.ToProtoList(rows),
 		NextCursor: next,
+	}, nil
+}
+
+func (s *Server) ValidateAgent(ctx context.Context, req *authv1.ValidateAgentRequest) (*authv1.ValidateAgentResponse, error) {
+	caller, ok := CallerFromContext(ctx)
+	if !ok {
+		return nil, status.Error(codes.Unauthenticated, "missing caller context")
+	}
+
+	// ValidateAgent is always tenant-scoped; never allow cross-org lookups.
+	if caller.OrgID != req.GetOrgId() {
+		return nil, status.Error(codes.PermissionDenied, "forbidden")
+	}
+
+	orgID, err := uuid.Parse(req.GetOrgId())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid org_id")
+	}
+	agentID, err := uuid.Parse(req.GetAgentId())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid agent_id")
+	}
+
+	rec, err := s.agentsStore.GetByIDAndOrg(ctx, agentID, orgID)
+	if err != nil {
+		return nil, status.Error(codes.Internal, "agent lookup failed")
+	}
+	if rec == nil {
+		// Not found for this org is treated as permission denied to avoid existence leakage.
+		return nil, status.Error(codes.PermissionDenied, "agent not found")
+	}
+	if rec.Status != "active" {
+		return nil, status.Error(codes.PermissionDenied, "agent is not active")
+	}
+
+	return &authv1.ValidateAgentResponse{
+		AgentId: rec.ID,
+		OrgId:   rec.OrgID,
+		Status:  rec.Status,
 	}, nil
 }
