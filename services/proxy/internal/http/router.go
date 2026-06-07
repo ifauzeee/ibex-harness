@@ -6,7 +6,6 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/Rick1330/ibex-harness/packages/ratelimit"
@@ -31,11 +30,12 @@ type authProbeResponse struct {
 
 // RouterDeps wires the proxy HTTP handler and middleware chain.
 type RouterDeps struct {
-	Config    config.Config
-	Logger    *slog.Logger
-	Metrics   *metrics.Metrics
-	Validator auth.TokenValidator
-	Limiter   ratelimit.Limiter
+	Config        config.Config
+	Logger        *slog.Logger
+	Metrics       *metrics.Metrics
+	Validator     auth.TokenValidator
+	AgentVerifier auth.AgentVerifier
+	Limiter       ratelimit.Limiter
 }
 
 // NewRouter builds the proxy HTTP handler with optional auth validator for protected routes.
@@ -44,6 +44,7 @@ func NewRouter(deps RouterDeps) http.Handler {
 	logger := deps.Logger
 	meter := deps.Metrics
 	validator := deps.Validator
+	agentVerifier := deps.AgentVerifier
 	limiter := deps.Limiter
 	cfg.ApplyDefaults()
 	mux := http.NewServeMux()
@@ -78,38 +79,16 @@ func NewRouter(deps RouterDeps) http.Handler {
 	})
 
 	if validator != nil {
-		var rateLimit func(http.Handler) http.Handler
-		if limiter != nil {
-			rateLimit = RateLimitMiddleware(limiter, logger)
-		}
-
-		authNone := AuthMiddleware(validator, meter, logger, AuthOptions{})
-		mux.Handle("/v1/internal/auth-probe", chain(authNone, rateLimit)(http.HandlerFunc(handleAuthProbe)))
-
-		authOrg := func(orgID string) func(http.Handler) http.Handler {
-			return AuthMiddleware(validator, meter, logger, AuthOptions{PathOrgID: orgID})
-		}
-		mux.HandleFunc("/v1/orgs/{org_id}/auth-probe", func(w http.ResponseWriter, r *http.Request) {
-			if !requireMethod(w, r, http.MethodGet, docsBase) {
-				return
-			}
-			orgID := strings.TrimSpace(r.PathValue("org_id"))
-			chain(
-				PathOrgUUIDMiddleware(docsBase),
-				authOrg(orgID),
-				rateLimit,
-			)(http.HandlerFunc(handleAuthProbe)).ServeHTTP(w, r)
+		registerProtectedRoutes(protectedRouteDeps{
+			mux:           mux,
+			cfg:           cfg,
+			logger:        logger,
+			meter:         meter,
+			validator:     validator,
+			agentVerifier: agentVerifier,
+			limiter:       limiter,
+			docsBase:      docsBase,
 		})
-
-		chatChain := chain(
-			BodySizeLimitMiddleware(cfg.MaxRequestBodyBytes, docsBase),
-			ContentTypeMiddleware(docsBase),
-			AuthMiddleware(validator, meter, logger, AuthOptions{RequireProxyChatCompletion: true}),
-			rateLimit,
-		)
-		mux.Handle("/v1/chat/completions", chatChain(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			handleChatCompletions(w, r, logger, docsBase)
-		})))
 	}
 
 	handler := meter.Middleware(
