@@ -2,12 +2,12 @@ package http
 
 import (
 	"context"
-	"io"
-	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/Rick1330/ibex-harness/packages/logger"
 
 	"github.com/Rick1330/ibex-harness/services/proxy/internal/auth"
 	proxyerrors "github.com/Rick1330/ibex-harness/services/proxy/internal/errors"
@@ -43,7 +43,7 @@ func agentTestAgentID() string {
 
 func runAgentVerification(t *testing.T, verifier auth.AgentVerifier, agentID string, withAuth bool) *httptest.ResponseRecorder {
 	t.Helper()
-	handler := AgentVerificationMiddleware(verifier, metrics.New(), slog.New(slog.NewTextHandler(io.Discard, nil)))(
+	handler := AgentVerificationMiddleware(verifier, metrics.New(), logger.Discard("proxy"))(
 		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			rec, ok := AgentFromContext(r.Context())
 			if !ok {

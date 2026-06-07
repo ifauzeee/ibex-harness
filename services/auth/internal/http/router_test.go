@@ -1,19 +1,19 @@
 package http
 
 import (
-	"io"
-	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/Rick1330/ibex-harness/packages/logger"
 
 	"github.com/Rick1330/ibex-harness/services/auth/internal/config"
 	"github.com/Rick1330/ibex-harness/services/auth/internal/metrics"
 )
 
 func TestHealthReturnsOK(t *testing.T) {
-	router := NewRouter(config.Config{ServiceName: "auth"}, slog.New(slog.NewTextHandler(io.Discard, nil)), metrics.New())
+	router := NewRouter(config.Config{ServiceName: "auth"}, logger.Discard("auth"), metrics.New())
 
 	req := httptest.NewRequest(http.MethodGet, "/health", nil)
 	rec := httptest.NewRecorder()
@@ -28,7 +28,7 @@ func TestHealthReturnsOK(t *testing.T) {
 }
 
 func TestReadyMissingPostgresDSN(t *testing.T) {
-	router := NewRouter(config.Config{ServiceName: "auth"}, slog.New(slog.NewTextHandler(io.Discard, nil)), metrics.New())
+	router := NewRouter(config.Config{ServiceName: "auth"}, logger.Discard("auth"), metrics.New())
 
 	req := httptest.NewRequest(http.MethodGet, "/ready", nil)
 	rec := httptest.NewRecorder()
