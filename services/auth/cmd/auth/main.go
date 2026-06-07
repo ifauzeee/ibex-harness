@@ -8,11 +8,10 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"os/signal"
-	"syscall"
 	"time"
 
 	authv1 "github.com/Rick1330/ibex-harness/packages/proto/gen/go/ibex/auth/v1"
+	"github.com/Rick1330/ibex-harness/packages/shutdown"
 	"github.com/Rick1330/ibex-harness/services/auth/internal/config"
 	grpcserver "github.com/Rick1330/ibex-harness/services/auth/internal/grpc"
 	authhttp "github.com/Rick1330/ibex-harness/services/auth/internal/http"
@@ -39,7 +38,6 @@ func main() {
 		logger.Error("postgres open failed", "error", err)
 		os.Exit(1)
 	}
-	defer func() { _ = db.Close() }()
 	db.SetMaxOpenConns(10)
 	db.SetMaxIdleConns(5)
 	db.SetConnMaxLifetime(30 * time.Minute)
@@ -67,43 +65,66 @@ func main() {
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
+	runWithShutdown(shutdownOpts{
+		cfg: cfg, logger: logger, grpcSrv: grpcSrv, grpcLis: grpcLis,
+		httpServer: httpServer, db: db,
+	})
+}
+
+type shutdownOpts struct {
+	cfg        config.Config
+	logger     *slog.Logger
+	grpcSrv    *grpc.Server
+	grpcLis    net.Listener
+	httpServer *http.Server
+	db         *sql.DB
+}
+
+func runWithShutdown(opts shutdownOpts) {
 	errCh := make(chan error, 2)
 	go func() {
-		logger.Info("grpc starting", "port", cfg.GRPCPort)
-		if err := grpcSrv.Serve(grpcLis); err != nil {
+		opts.logger.Info("grpc starting", "port", opts.cfg.GRPCPort)
+		if err := opts.grpcSrv.Serve(opts.grpcLis); err != nil {
 			errCh <- err
 			return
 		}
 		errCh <- nil
 	}()
 	go func() {
-		logger.Info("http starting", "service", cfg.ServiceName, "port", cfg.Port, "env", cfg.Environment)
-		if err := httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		opts.logger.Info("http starting", "service", opts.cfg.ServiceName, "port", opts.cfg.Port, "env", opts.cfg.Environment)
+		if err := opts.httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			errCh <- err
 			return
 		}
 		errCh <- nil
 	}()
 
-	stop := make(chan os.Signal, 1)
-	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
+	sd := shutdown.New(opts.cfg.ShutdownTimeout, opts.logger)
+	sd.Register(func(ctx context.Context) error {
+		return shutdown.GracefulStopGRPC(opts.grpcSrv, ctx)
+	})
+	sd.Register(func(ctx context.Context) error {
+		return opts.httpServer.Shutdown(ctx)
+	})
+	sd.Register(func(ctx context.Context) error {
+		return opts.db.Close()
+	})
+
+	shutdownErrCh := make(chan error, 1)
+	go func() {
+		shutdownErrCh <- sd.Wait()
+	}()
 
 	select {
-	case sig := <-stop:
-		logger.Info("shutdown signal received", "signal", sig.String())
 	case err := <-errCh:
 		if err != nil {
-			logger.Error("server failed", "error", err)
+			opts.logger.Error("server failed", "error", err)
 			os.Exit(1)
 		}
+	case err := <-shutdownErrCh:
+		if err != nil {
+			os.Exit(1)
+		}
+		opts.logger.Info("service stopped", "service", opts.cfg.ServiceName)
 	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	grpcSrv.GracefulStop()
-	if err := httpServer.Shutdown(ctx); err != nil {
-		logger.Error("http shutdown failed", "error", err)
-		os.Exit(1)
-	}
-	logger.Info("service stopped", "service", cfg.ServiceName)
 }

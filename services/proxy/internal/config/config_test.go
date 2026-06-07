@@ -2,6 +2,7 @@ package config
 
 import (
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -53,6 +54,24 @@ func TestApplyDefaultsZeroConfigValidates(t *testing.T) {
 	}
 	if cfg.RateLimit.DefaultRPM != defaultRateLimitRPM {
 		t.Fatalf("RateLimit.DefaultRPM: %d", cfg.RateLimit.DefaultRPM)
+	}
+	if cfg.ShutdownTimeout != defaultShutdownTimeout {
+		t.Fatalf("ShutdownTimeout: %s", cfg.ShutdownTimeout)
+	}
+}
+
+func TestApplyDefaultsShutdownTimeout(t *testing.T) {
+	var cfg Config
+	cfg.ApplyDefaults()
+	if cfg.ShutdownTimeout != 30*time.Second {
+		t.Fatalf("ShutdownTimeout: %s", cfg.ShutdownTimeout)
+	}
+}
+
+func TestLoadRejectsNonPositiveShutdownTimeout(t *testing.T) {
+	t.Setenv("IBEX_SHUTDOWN_TIMEOUT", "0s")
+	if _, err := Load(); err == nil {
+		t.Fatal("expected error for zero shutdown timeout")
 	}
 }
 
