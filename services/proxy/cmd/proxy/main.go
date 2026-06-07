@@ -12,6 +12,7 @@ import (
 	authv1 "github.com/Rick1330/ibex-harness/packages/proto/gen/go/ibex/auth/v1"
 	"github.com/Rick1330/ibex-harness/packages/ratelimit"
 	"github.com/Rick1330/ibex-harness/packages/shutdown"
+	"github.com/Rick1330/ibex-harness/packages/telemetry"
 	"github.com/Rick1330/ibex-harness/services/proxy/internal/auth"
 	"github.com/Rick1330/ibex-harness/services/proxy/internal/config"
 	proxygrpc "github.com/Rick1330/ibex-harness/services/proxy/internal/grpc"
@@ -19,6 +20,7 @@ import (
 	"github.com/Rick1330/ibex-harness/services/proxy/internal/metrics"
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -36,6 +38,11 @@ func main() {
 		os.Exit(1)
 	}
 
+	providers, tracer, err := telemetry.InitTracer(context.Background(), cfg.Telemetry, "ibex-proxy")
+	if err != nil {
+		log.ErrorCtx(context.Background(), "telemetry init failed", "error", err)
+		os.Exit(1)
+	}
 	meter := metrics.New()
 	redisClient, limiter := setupRateLimiter(cfg, log)
 	validator, agentVerifier, grpcConn := setupAuthClients(cfg, log)
@@ -44,13 +51,14 @@ func main() {
 		Config:        cfg,
 		Logger:        log,
 		Metrics:       meter,
+		Tracer:        tracer,
 		Validator:     validator,
 		AgentVerifier: agentVerifier,
 		Limiter:       limiter,
 	}
 	server := newHTTPServer(deps)
 	runWithShutdown(shutdownOpts{
-		cfg: cfg, logger: log, server: server,
+		cfg: cfg, logger: log, providers: providers, server: server,
 		grpcConn: grpcConn, redisClient: redisClient,
 	})
 }
@@ -59,6 +67,7 @@ type shutdownOpts struct {
 	cfg         config.Config
 	logger      *logger.Logger
 	server      *http.Server
+	providers   *telemetry.Providers
 	grpcConn    *grpc.ClientConn
 	redisClient redis.UniversalClient
 }
@@ -86,6 +95,7 @@ func setupAuthClients(cfg config.Config, log *logger.Logger) (auth.TokenValidato
 	}
 	conn, err := grpc.NewClient(cfg.AuthGRPCAddr,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
 		grpc.WithChainUnaryInterceptor(proxygrpc.RequestIDUnaryInterceptor()),
 	)
 	if err != nil {
@@ -119,6 +129,7 @@ func runWithShutdown(opts shutdownOpts) {
 	}()
 
 	sd := shutdown.New(opts.cfg.ShutdownTimeout, opts.logger)
+	sd.Register(opts.providers.Shutdown)
 	sd.Register(func(ctx context.Context) error {
 		return opts.server.Shutdown(ctx)
 	})
