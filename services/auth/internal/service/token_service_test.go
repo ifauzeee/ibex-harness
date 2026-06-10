@@ -4,6 +4,9 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
+	"sort"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -59,9 +62,6 @@ func (m *memTokenRepo) ListTokens(_ context.Context, orgID, cursor string, limit
 		if p.OrgID != orgID {
 			continue
 		}
-		if cursor != "" && id >= cursor {
-			continue
-		}
 		meta := repository.TokenMetadata{
 			ID:          id,
 			Name:        p.Name,
@@ -78,15 +78,51 @@ func (m *memTokenRepo) ListTokens(_ context.Context, orgID, cursor string, limit
 		}
 		rows = append(rows, meta)
 	}
+	sort.Slice(rows, func(i, j int) bool {
+		if rows[i].CreatedAt.Equal(rows[j].CreatedAt) {
+			return rows[i].ID > rows[j].ID
+		}
+		return rows[i].CreatedAt.After(rows[j].CreatedAt)
+	})
+	if cursor != "" {
+		cursorTS, cursorID, err := decodeMemTokenCursor(cursor)
+		if err != nil {
+			return nil, "", err
+		}
+		filtered := rows[:0]
+		for _, row := range rows {
+			if row.CreatedAt.Before(cursorTS) || (row.CreatedAt.Equal(cursorTS) && row.ID < cursorID) {
+				filtered = append(filtered, row)
+			}
+		}
+		rows = filtered
+	}
 	if limit <= 0 {
 		limit = 50
 	}
+	var next string
 	if len(rows) > limit {
-		next := rows[limit-1].ID
+		last := rows[limit-1]
+		next = encodeMemTokenCursor(last.CreatedAt, last.ID)
 		rows = rows[:limit]
-		return rows, next, nil
 	}
-	return rows, "", nil
+	return rows, next, nil
+}
+
+func encodeMemTokenCursor(createdAt time.Time, id string) string {
+	return fmt.Sprintf("%d|%s", createdAt.UTC().UnixNano(), id)
+}
+
+func decodeMemTokenCursor(cursor string) (time.Time, string, error) {
+	parts := strings.SplitN(cursor, "|", 2)
+	if len(parts) != 2 {
+		return time.Time{}, "", fmt.Errorf("invalid cursor %q", cursor)
+	}
+	var nano int64
+	if _, err := fmt.Sscanf(parts[0], "%d", &nano); err != nil {
+		return time.Time{}, "", err
+	}
+	return time.Unix(0, nano).UTC(), parts[1], nil
 }
 
 func testTokenService(repo tokenRepo) *TokenService {
