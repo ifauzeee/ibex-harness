@@ -155,22 +155,7 @@ func runWithShutdown(opts shutdownOpts) int {
 	} else {
 		sd = shutdown.New(opts.cfg.ShutdownTimeout, opts.logger)
 	}
-	sd.Register(opts.providers.Shutdown)
-	sd.Register(func(ctx context.Context) error {
-		return opts.server.Shutdown(ctx)
-	})
-	sd.Register(func(ctx context.Context) error {
-		if opts.grpcConn != nil {
-			return opts.grpcConn.Close()
-		}
-		return nil
-	})
-	sd.Register(func(ctx context.Context) error {
-		if opts.redisClient != nil {
-			return opts.redisClient.Close()
-		}
-		return nil
-	})
+	registerShutdownHooks(sd, opts)
 
 	shutdownErrCh := make(chan error, 1)
 	go func() {
@@ -190,6 +175,25 @@ func runWithShutdown(opts shutdownOpts) int {
 		opts.logger.InfoCtx(context.Background(), "service stopped")
 	}
 	return 0
+}
+
+func registerShutdownHooks(sd *shutdown.Coordinator, opts shutdownOpts) {
+	sd.Register(opts.providers.Shutdown)
+	sd.Register(func(ctx context.Context) error {
+		return opts.server.Shutdown(ctx)
+	})
+	sd.Register(func(ctx context.Context) error {
+		if opts.grpcConn != nil {
+			return opts.grpcConn.Close()
+		}
+		return nil
+	})
+	sd.Register(func(ctx context.Context) error {
+		if opts.redisClient != nil {
+			return opts.redisClient.Close()
+		}
+		return nil
+	})
 }
 
 func rateLimitSliderConfig(cfg config.Config) ratelimit.RedisSliderConfig {

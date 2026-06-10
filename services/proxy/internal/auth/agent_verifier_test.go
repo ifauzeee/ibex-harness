@@ -37,7 +37,11 @@ func TestGRPCAgentVerifier_Verify(t *testing.T) {
 						t.Fatalf("request: %+v", req)
 					}
 					md, ok := metadata.FromOutgoingContext(ctx)
-					if !ok || md.Get("authorization")[0] != "Bearer "+bearer {
+					if !ok {
+						t.Fatal("expected outgoing metadata")
+					}
+					vals := md.Get("authorization")
+					if len(vals) == 0 || vals[0] != "Bearer "+bearer {
 						t.Fatalf("metadata: %v", md)
 					}
 					return &authv1.ValidateAgentResponse{AgentId: agentID, OrgId: orgID, Status: "active"}, nil

@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"time"
 
 	authv1 "github.com/Rick1330/ibex-harness/packages/proto/gen/go/ibex/auth/v1"
@@ -38,7 +39,7 @@ func (v *Validator) Validate(ctx context.Context, accessToken string) (*authv1.V
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrUnauthenticated
 		}
-		return nil, err
+		return nil, fmt.Errorf("Validator.Validate prefix=%s: %w", parsed.Prefix, err)
 	}
 
 	ok, err := VerifyBearer(row.Hash, parsed.Bearer, v.argon2)

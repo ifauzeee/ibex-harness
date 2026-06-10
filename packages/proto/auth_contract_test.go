@@ -206,14 +206,14 @@ func protoRoundTrip(t *testing.T, msg proto.Message) {
 func strPtr(s string) *string { return &s }
 
 func sampleTimestamp() *timestamppb.Timestamp {
-	return timestamppb.New(timestamppb.Now().AsTime().UTC())
+	return timestamppb.Now()
 }
 
-func TestAuthMessagesProtoRoundTrip(t *testing.T) {
-	t.Parallel()
-	now := sampleTimestamp()
-
-	tests := []struct {
+func authMessageTestCases(now *timestamppb.Timestamp) []struct {
+	name string
+	msg  proto.Message
+} {
+	return []struct {
 		name string
 		msg  proto.Message
 	}{
@@ -318,6 +318,12 @@ func TestAuthMessagesProtoRoundTrip(t *testing.T) {
 			},
 		},
 	}
+}
+
+func TestAuthMessagesProtoRoundTrip(t *testing.T) {
+	t.Parallel()
+	now := sampleTimestamp()
+	tests := authMessageTestCases(now)
 
 	for _, tc := range tests {
 		tc := tc

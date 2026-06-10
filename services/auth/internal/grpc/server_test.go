@@ -68,7 +68,8 @@ type serviceTokenRepo interface {
 	ListTokens(ctx context.Context, orgID, cursor string, limit int) ([]repository.TokenMetadata, string, error)
 }
 
-func adminCtx(orgID string) context.Context {
+func adminCtx(t *testing.T, orgID string) context.Context {
+	t.Helper()
 	return ContextWithCaller(context.Background(), CallerContext{
 		OrgID:       orgID,
 		TokenID:     uuid.NewString(),
@@ -160,13 +161,13 @@ func TestServer_CreateToken(t *testing.T) {
 		},
 		{
 			name:     "invalid argument",
-			ctx:      adminCtx(orgID),
+			ctx:      adminCtx(t, orgID),
 			req:      &authv1.CreateTokenRequest{OrgId: orgID},
 			wantCode: codes.InvalidArgument,
 		},
 		{
 			name: "ok",
-			ctx:  adminCtx(orgID),
+			ctx:  adminCtx(t, orgID),
 			req: &authv1.CreateTokenRequest{
 				OrgId: orgID, Name: "pat", Permissions: permissions.AgentDefault,
 			},
@@ -241,7 +242,7 @@ func TestServer_RevokeToken(t *testing.T) {
 		},
 		{
 			name: "not found in repo",
-			ctx:  adminCtx(orgID),
+			ctx:  adminCtx(t, orgID),
 			req:  &authv1.RevokeTokenRequest{OrgId: orgID, TokenId: tokenID},
 			repo: &fakeTokenRepo{
 				revokeFn: func(context.Context, string, string, string, *string) error {
@@ -252,7 +253,7 @@ func TestServer_RevokeToken(t *testing.T) {
 		},
 		{
 			name: "internal error",
-			ctx:  adminCtx(orgID),
+			ctx:  adminCtx(t, orgID),
 			req:  &authv1.RevokeTokenRequest{OrgId: orgID, TokenId: tokenID},
 			repo: &fakeTokenRepo{
 				revokeFn: func(context.Context, string, string, string, *string) error {
@@ -272,7 +273,7 @@ func TestServer_RevokeToken(t *testing.T) {
 		},
 		{
 			name:     "admin revoke ok",
-			ctx:      adminCtx(orgID),
+			ctx:      adminCtx(t, orgID),
 			req:      &authv1.RevokeTokenRequest{OrgId: orgID, TokenId: tokenID},
 			repo:     &fakeTokenRepo{},
 			wantCode: codes.OK,
@@ -332,7 +333,7 @@ func TestServer_ListTokens(t *testing.T) {
 		},
 		{
 			name: "internal error",
-			ctx:  adminCtx(orgID),
+			ctx:  adminCtx(t, orgID),
 			repo: &fakeTokenRepo{
 				listFn: func(context.Context, string, string, int) ([]repository.TokenMetadata, string, error) {
 					return nil, "", errors.New("db down")
@@ -342,7 +343,7 @@ func TestServer_ListTokens(t *testing.T) {
 		},
 		{
 			name: "ok",
-			ctx:  adminCtx(orgID),
+			ctx:  adminCtx(t, orgID),
 			repo: &fakeTokenRepo{
 				listFn: func(context.Context, string, string, int) ([]repository.TokenMetadata, string, error) {
 					return []repository.TokenMetadata{
