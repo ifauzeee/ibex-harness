@@ -12,14 +12,21 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
+// tokenRepo persists token rows for TokenService.
+type tokenRepo interface {
+	CreateToken(ctx context.Context, p repository.CreateTokenParams) (string, error)
+	RevokeToken(ctx context.Context, orgID, tokenID, revokedBy string, reason *string) error
+	ListTokens(ctx context.Context, orgID, cursor string, limit int) ([]repository.TokenMetadata, string, error)
+}
+
 // TokenService manages PAT creation, revocation, and listing.
 type TokenService struct {
-	repo   *repository.TokensRepository
+	repo   tokenRepo
 	argon2 token.Argon2Params
 	logger *logger.Logger
 }
 
-func NewTokenService(repo *repository.TokensRepository, argon2 token.Argon2Params, log *logger.Logger) *TokenService {
+func NewTokenService(repo tokenRepo, argon2 token.Argon2Params, log *logger.Logger) *TokenService {
 	return &TokenService{repo: repo, argon2: argon2, logger: log}
 }
 

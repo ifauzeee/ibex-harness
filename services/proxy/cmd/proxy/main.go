@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -27,26 +28,38 @@ import (
 )
 
 func main() {
+	os.Exit(run(os.Args[1:]))
+}
+
+func run(_ []string) int {
 	cfg, err := config.Load()
 	if err != nil {
 		slog.New(slog.NewJSONHandler(os.Stderr, nil)).Error("invalid configuration", "error", err)
-		os.Exit(1)
+		return 1
 	}
 
 	log, err := logger.New(logger.Config{Service: cfg.ServiceName, Level: cfg.LogLevel})
 	if err != nil {
 		slog.New(slog.NewJSONHandler(os.Stderr, nil)).Error("logger init failed", "error", err)
-		os.Exit(1)
+		return 1
 	}
 
 	providers, tracer, err := telemetry.InitTracer(context.Background(), cfg.Telemetry, "ibex-proxy")
 	if err != nil {
 		log.ErrorCtx(context.Background(), "telemetry init failed", "error", err)
-		os.Exit(1)
+		return 1
 	}
 	reg := ibexmetrics.NewProxy(cfg.ServiceName)
-	redisClient, limiter := setupRateLimiter(cfg, log)
-	validator, agentVerifier, authClient, grpcConn := setupAuthClients(cfg, log)
+	redisClient, limiter, err := setupRateLimiter(cfg, log)
+	if err != nil {
+		log.ErrorCtx(context.Background(), "rate limiter setup failed", "error", err)
+		return 1
+	}
+	validator, agentVerifier, authClient, grpcConn, err := setupAuthClients(cfg, log)
+	if err != nil {
+		log.ErrorCtx(context.Background(), "auth client setup failed", "error", err)
+		return 1
+	}
 
 	healthSrv := &healthcheck.Server{
 		CriticalCheckers: map[string]healthcheck.Checker{
@@ -66,7 +79,7 @@ func main() {
 		Health:        healthSrv,
 	}
 	server := newHTTPServer(deps)
-	runWithShutdown(shutdownOpts{
+	return runWithShutdown(shutdownOpts{
 		cfg: cfg, logger: log, providers: providers, server: server,
 		grpcConn: grpcConn, redisClient: redisClient,
 	})
@@ -79,28 +92,28 @@ type shutdownOpts struct {
 	providers   *telemetry.Providers
 	grpcConn    *grpc.ClientConn
 	redisClient redis.UniversalClient
+	signalCh    chan os.Signal
 }
 
-func setupRateLimiter(cfg config.Config, log *logger.Logger) (redis.UniversalClient, ratelimit.Limiter) {
+func setupRateLimiter(cfg config.Config, log *logger.Logger) (redis.UniversalClient, ratelimit.Limiter, error) {
 	if cfg.RedisURL == "" {
-		return nil, ratelimit.Noop()
+		return nil, ratelimit.Noop(), nil
 	}
 	client, err := ratelimit.ParseRedisURL(cfg.RedisURL)
 	if err != nil {
-		log.ErrorCtx(context.Background(), "redis client init failed", "error", err)
-		os.Exit(1)
+		return nil, nil, fmt.Errorf("redis client init: %w", err)
 	}
 	limiter := ratelimit.NewRedisSlider(client, rateLimitSliderConfig(cfg))
 	log.InfoCtx(context.Background(), "rate limiter configured",
 		"default_rpm", cfg.RateLimit.DefaultRPM,
 		"org_overrides", len(cfg.RateLimit.OrgOverrides),
 	)
-	return client, limiter
+	return client, limiter, nil
 }
 
-func setupAuthClients(cfg config.Config, log *logger.Logger) (auth.TokenValidator, auth.AgentVerifier, authv1.AuthServiceClient, *grpc.ClientConn) {
+func setupAuthClients(cfg config.Config, log *logger.Logger) (auth.TokenValidator, auth.AgentVerifier, authv1.AuthServiceClient, *grpc.ClientConn, error) {
 	if cfg.AuthGRPCAddr == "" {
-		return nil, nil, nil, nil
+		return nil, nil, nil, nil, nil
 	}
 	conn, err := grpc.NewClient(cfg.AuthGRPCAddr,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
@@ -108,14 +121,13 @@ func setupAuthClients(cfg config.Config, log *logger.Logger) (auth.TokenValidato
 		grpc.WithChainUnaryInterceptor(proxygrpc.RequestIDUnaryInterceptor()),
 	)
 	if err != nil {
-		log.ErrorCtx(context.Background(), "auth grpc dial failed", "error", err, "addr", cfg.AuthGRPCAddr)
-		os.Exit(1)
+		return nil, nil, nil, nil, fmt.Errorf("auth grpc dial addr=%s: %w", cfg.AuthGRPCAddr, err)
 	}
 	client := authv1.NewAuthServiceClient(conn)
 	validator := auth.NewGRPCValidator(client, cfg.AuthValidateTimeout)
 	agentVerifier := auth.NewGRPCAgentVerifier(client, cfg.AuthValidateTimeout)
 	log.InfoCtx(context.Background(), "auth grpc client configured", "addr", cfg.AuthGRPCAddr, "timeout", cfg.AuthValidateTimeout.String())
-	return validator, agentVerifier, client, conn
+	return validator, agentVerifier, client, conn, nil
 }
 
 func newHTTPServer(deps proxyhttp.RouterDeps) *http.Server {
@@ -126,7 +138,7 @@ func newHTTPServer(deps proxyhttp.RouterDeps) *http.Server {
 	}
 }
 
-func runWithShutdown(opts shutdownOpts) {
+func runWithShutdown(opts shutdownOpts) int {
 	errCh := make(chan error, 1)
 	go func() {
 		opts.logger.InfoCtx(context.Background(), "service starting", "addr", opts.server.Addr)
@@ -137,7 +149,12 @@ func runWithShutdown(opts shutdownOpts) {
 		errCh <- nil
 	}()
 
-	sd := shutdown.New(opts.cfg.ShutdownTimeout, opts.logger)
+	var sd *shutdown.Coordinator
+	if opts.signalCh != nil {
+		sd = shutdown.NewWithSignalChan(opts.cfg.ShutdownTimeout, opts.logger, opts.signalCh)
+	} else {
+		sd = shutdown.New(opts.cfg.ShutdownTimeout, opts.logger)
+	}
 	sd.Register(opts.providers.Shutdown)
 	sd.Register(func(ctx context.Context) error {
 		return opts.server.Shutdown(ctx)
@@ -164,14 +181,15 @@ func runWithShutdown(opts shutdownOpts) {
 	case err := <-errCh:
 		if err != nil {
 			opts.logger.ErrorCtx(context.Background(), "server failed", "error", err)
-			os.Exit(1)
+			return 1
 		}
 	case err := <-shutdownErrCh:
 		if err != nil {
-			os.Exit(1)
+			return 1
 		}
 		opts.logger.InfoCtx(context.Background(), "service stopped")
 	}
+	return 0
 }
 
 func rateLimitSliderConfig(cfg config.Config) ratelimit.RedisSliderConfig {

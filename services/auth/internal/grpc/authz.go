@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/Rick1330/ibex-harness/packages/permissions"
-	"github.com/Rick1330/ibex-harness/services/auth/internal/token"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -34,7 +33,7 @@ func CallerFromContext(ctx context.Context) (CallerContext, bool) {
 }
 
 // AuthzUnaryInterceptor validates caller bearer tokens for management RPCs.
-func AuthzUnaryInterceptor(validator *token.Validator) grpc.UnaryServerInterceptor {
+func AuthzUnaryInterceptor(validator tokenValidator) grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
 		if info.FullMethod == "/ibex.auth.v1.AuthService/ValidateToken" {
 			return handler(ctx, req)

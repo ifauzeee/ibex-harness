@@ -27,22 +27,26 @@ import (
 )
 
 func main() {
+	os.Exit(run(os.Args[1:]))
+}
+
+func run(_ []string) int {
 	cfg, err := config.Load()
 	if err != nil {
 		slog.New(slog.NewJSONHandler(os.Stderr, nil)).Error("invalid configuration", "error", err)
-		os.Exit(1)
+		return 1
 	}
 
 	log, err := logger.New(logger.Config{Service: cfg.ServiceName, Level: cfg.LogLevel})
 	if err != nil {
 		slog.New(slog.NewJSONHandler(os.Stderr, nil)).Error("logger init failed", "error", err)
-		os.Exit(1)
+		return 1
 	}
 
 	db, err := sql.Open("postgres", cfg.PostgresDSN)
 	if err != nil {
 		log.ErrorCtx(context.Background(), "postgres open failed", "error", err)
-		os.Exit(1)
+		return 1
 	}
 	db.SetMaxOpenConns(10)
 	db.SetMaxIdleConns(5)
@@ -57,7 +61,7 @@ func main() {
 	providers, tracer, err := telemetry.InitTracer(context.Background(), cfg.Telemetry, "ibex-auth")
 	if err != nil {
 		log.ErrorCtx(context.Background(), "telemetry init failed", "error", err)
-		os.Exit(1)
+		return 1
 	}
 
 	grpcSrv := grpc.NewServer(
@@ -71,7 +75,7 @@ func main() {
 	grpcLis, err := net.Listen("tcp", config.ListenAddress(cfg.GRPCPort))
 	if err != nil {
 		log.ErrorCtx(context.Background(), "grpc listen failed", "error", err)
-		os.Exit(1)
+		return 1
 	}
 
 	healthSrv := &healthcheck.Server{
@@ -87,7 +91,7 @@ func main() {
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
-	runWithShutdown(shutdownOpts{
+	return runWithShutdown(shutdownOpts{
 		cfg: cfg, logger: log, providers: providers, grpcSrv: grpcSrv, grpcLis: grpcLis,
 		httpServer: httpServer, db: db,
 	})
@@ -101,9 +105,10 @@ type shutdownOpts struct {
 	grpcLis    net.Listener
 	httpServer *http.Server
 	db         *sql.DB
+	signalCh   chan os.Signal
 }
 
-func runWithShutdown(opts shutdownOpts) {
+func runWithShutdown(opts shutdownOpts) int {
 	errCh := make(chan error, 2)
 	go func() {
 		opts.logger.InfoCtx(context.Background(), "grpc starting", "port", opts.cfg.GRPCPort)
@@ -122,7 +127,12 @@ func runWithShutdown(opts shutdownOpts) {
 		errCh <- nil
 	}()
 
-	sd := shutdown.New(opts.cfg.ShutdownTimeout, opts.logger)
+	var sd *shutdown.Coordinator
+	if opts.signalCh != nil {
+		sd = shutdown.NewWithSignalChan(opts.cfg.ShutdownTimeout, opts.logger, opts.signalCh)
+	} else {
+		sd = shutdown.New(opts.cfg.ShutdownTimeout, opts.logger)
+	}
 	sd.Register(opts.providers.Shutdown)
 	sd.Register(func(ctx context.Context) error {
 		return shutdown.GracefulStopGRPC(opts.grpcSrv, ctx)
@@ -143,12 +153,13 @@ func runWithShutdown(opts shutdownOpts) {
 	case err := <-errCh:
 		if err != nil {
 			opts.logger.ErrorCtx(context.Background(), "server failed", "error", err)
-			os.Exit(1)
+			return 1
 		}
 	case err := <-shutdownErrCh:
 		if err != nil {
-			os.Exit(1)
+			return 1
 		}
 		opts.logger.InfoCtx(context.Background(), "service stopped")
 	}
+	return 0
 }

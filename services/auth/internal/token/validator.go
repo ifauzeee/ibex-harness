@@ -11,13 +11,18 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
+// tokenLookup loads active token rows for validation.
+type tokenLookup interface {
+	FindActiveByPrefix(ctx context.Context, prefix string) (repository.TokenRow, error)
+}
+
 // Validator validates bearer tokens against Postgres.
 type Validator struct {
-	repo   *repository.TokensRepository
+	repo   tokenLookup
 	argon2 Argon2Params
 }
 
-func NewValidator(repo *repository.TokensRepository, argon2 Argon2Params) *Validator {
+func NewValidator(repo tokenLookup, argon2 Argon2Params) *Validator {
 	return &Validator{repo: repo, argon2: argon2}
 }
 
