@@ -1,47 +1,21 @@
 package http
 
 import (
-	"context"
-	"encoding/json"
 	"net/http"
 	"time"
 
+	"github.com/Rick1330/ibex-harness/packages/healthcheck"
 	"github.com/Rick1330/ibex-harness/packages/logger"
 	"github.com/Rick1330/ibex-harness/packages/metrics"
 	"github.com/Rick1330/ibex-harness/packages/telemetry"
-	"github.com/Rick1330/ibex-harness/services/auth/internal/config"
-	"github.com/Rick1330/ibex-harness/services/auth/internal/health"
 	"go.opentelemetry.io/otel/trace"
 )
 
-type response struct {
-	Status string `json:"status"`
-	Reason string `json:"reason,omitempty"`
-}
-
-func NewRouter(cfg config.Config, log *logger.Logger, reg *metrics.AuthRegistry, tracer trace.Tracer) http.Handler {
+// NewRouter builds the auth HTTP handler including health, ready, and metrics routes.
+func NewRouter(log *logger.Logger, reg *metrics.AuthRegistry, tracer trace.Tracer, healthSrv *healthcheck.Server) http.Handler {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
-		if !requireMethod(w, r, http.MethodGet) {
-			return
-		}
-		writeJSON(w, http.StatusOK, response{Status: "ok"})
-	})
-	mux.HandleFunc("/ready", func(w http.ResponseWriter, r *http.Request) {
-		if !requireMethod(w, r, http.MethodGet) {
-			return
-		}
-		ctx, cancel := context.WithTimeout(r.Context(), 750*time.Millisecond)
-		defer cancel()
-
-		result := health.ReadyPostgres(ctx, cfg.PostgresDSN)
-		if !result.OK {
-			log.WarnCtx(r.Context(), "readiness check failed", "reason", result.Reason)
-			writeJSON(w, http.StatusServiceUnavailable, response{Status: "not_ready", Reason: result.Reason})
-			return
-		}
-		writeJSON(w, http.StatusOK, response{Status: "ok"})
-	})
+	mux.HandleFunc("/health", healthSrv.HealthHandler())
+	mux.HandleFunc("/ready", readyWithLog(log, healthSrv.ReadyHandler()))
 	mux.Handle("/metrics", metrics.Handler(reg.Gatherer()))
 
 	return telemetry.SpanMiddleware(tracer)(
@@ -49,6 +23,16 @@ func NewRouter(cfg config.Config, log *logger.Logger, reg *metrics.AuthRegistry,
 			loggingMiddleware(log, mux),
 		),
 	)
+}
+
+func readyWithLog(log *logger.Logger, next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		rec := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
+		next(rec, r)
+		if rec.status == http.StatusServiceUnavailable {
+			log.WarnCtx(r.Context(), "readiness check failed")
+		}
+	}
 }
 
 func loggingMiddleware(log *logger.Logger, next http.Handler) http.Handler {
@@ -73,19 +57,4 @@ type statusRecorder struct {
 func (r *statusRecorder) WriteHeader(status int) {
 	r.status = status
 	r.ResponseWriter.WriteHeader(status)
-}
-
-func writeJSON(w http.ResponseWriter, status int, body response) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(body)
-}
-
-func requireMethod(w http.ResponseWriter, r *http.Request, method string) bool {
-	if r.Method == method {
-		return true
-	}
-	w.Header().Set("Allow", method)
-	writeJSON(w, http.StatusMethodNotAllowed, response{Status: "error", Reason: "method not allowed"})
-	return false
 }
