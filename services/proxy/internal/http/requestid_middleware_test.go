@@ -7,10 +7,10 @@ import (
 	"strings"
 	"testing"
 
+	apierror "github.com/Rick1330/ibex-harness/packages/apierror"
 	"github.com/Rick1330/ibex-harness/packages/reqid"
 	"github.com/Rick1330/ibex-harness/packages/telemetry"
 	"github.com/Rick1330/ibex-harness/services/proxy/internal/config"
-	proxyerrors "github.com/Rick1330/ibex-harness/services/proxy/internal/errors"
 	"github.com/google/uuid"
 )
 
@@ -26,6 +26,7 @@ func requestIDHandlerChain(cfg config.Config) http.Handler {
 }
 
 func TestRequestContextMiddleware_generatesV7(t *testing.T) {
+	t.Parallel()
 	cfg := config.Config{RequestIDHeader: "X-Request-ID", TraceIDHeader: "X-Trace-ID"}
 	rec := httptest.NewRecorder()
 	requestIDHandlerChain(cfg).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/", nil))
@@ -41,6 +42,7 @@ func TestRequestContextMiddleware_generatesV7(t *testing.T) {
 }
 
 func TestRequestContextMiddleware_honoursValidV4(t *testing.T) {
+	t.Parallel()
 	inbound := uuid.New().String()
 	cfg := config.Config{RequestIDHeader: "X-Request-ID", TraceIDHeader: "X-Trace-ID"}
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
@@ -54,6 +56,7 @@ func TestRequestContextMiddleware_honoursValidV4(t *testing.T) {
 }
 
 func TestRequestContextMiddleware_rejectsInvalidInbound(t *testing.T) {
+	t.Parallel()
 	const garbage = "not-a-valid-uuid"
 	cfg := config.Config{RequestIDHeader: "X-Request-ID", TraceIDHeader: "X-Trace-ID"}
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
@@ -72,6 +75,7 @@ func TestRequestContextMiddleware_rejectsInvalidInbound(t *testing.T) {
 }
 
 func TestRequestContextMiddleware_contextPropagation(t *testing.T) {
+	t.Parallel()
 	cfg := config.Config{RequestIDHeader: "X-Request-ID", TraceIDHeader: "X-Trace-ID"}
 	handler := RequestContextMiddleware(cfg)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		id, ok := reqid.FromContext(r.Context())
@@ -88,14 +92,15 @@ func TestRequestContextMiddleware_contextPropagation(t *testing.T) {
 }
 
 func TestRequestIDInErrorEnvelope_matchesHeader(t *testing.T) {
+	t.Parallel()
 	cfg := config.Config{RequestIDHeader: "X-Request-ID", TraceIDHeader: "X-Trace-ID"}
 	tracer := telemetry.NoopTracer("test")
 	handler := RequestContextMiddleware(cfg)(
 		telemetry.SpanMiddleware(tracer)(
 			ResponseHeadersMiddleware(cfg)(
 				ContentTypeMiddleware("")(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-					proxyerrors.Write(w, http.StatusBadRequest, proxyerrors.CodeValidationError,
-						"fail", RequestIDFromContext(r.Context()), proxyerrors.WriteOpts{})
+					apierror.WriteStatus(w, http.StatusBadRequest, apierror.CodeValidationError,
+						"fail", RequestIDFromContext(r.Context()), apierror.WriteOpts{})
 				})),
 			),
 		),
