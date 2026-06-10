@@ -5,13 +5,13 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	apierror "github.com/Rick1330/ibex-harness/packages/apierror"
 	"github.com/Rick1330/ibex-harness/packages/logger"
 	"github.com/Rick1330/ibex-harness/packages/permissions"
 	"github.com/Rick1330/ibex-harness/services/proxy/internal/auth"
-	"strings"
 )
 
 type mockValidator struct {
@@ -24,6 +24,8 @@ func (m *mockValidator) Validate(_ context.Context, _ string) (*auth.ValidateRes
 }
 
 func TestAuthMiddlewareMissingToken(t *testing.T) {
+	t.Parallel()
+
 	handler := AuthMiddleware(&mockValidator{}, logger.Discard("proxy"), AuthOptions{})(
 		http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) }),
 	)
@@ -35,6 +37,8 @@ func TestAuthMiddlewareMissingToken(t *testing.T) {
 }
 
 func TestAuthMiddlewareInvalidToken(t *testing.T) {
+	t.Parallel()
+
 	handler := AuthMiddleware(&mockValidator{err: auth.ErrInvalidToken}, logger.Discard("proxy"), AuthOptions{})(
 		http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) }),
 	)
@@ -48,6 +52,8 @@ func TestAuthMiddlewareInvalidToken(t *testing.T) {
 }
 
 func TestAuthMiddlewareAuthUnavailable(t *testing.T) {
+	t.Parallel()
+
 	handler := AuthMiddleware(&mockValidator{err: auth.ErrAuthUnavailable}, logger.Discard("proxy"), AuthOptions{})(
 		http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) }),
 	)
@@ -61,6 +67,8 @@ func TestAuthMiddlewareAuthUnavailable(t *testing.T) {
 }
 
 func TestAuthMiddlewareInsufficientPermissions(t *testing.T) {
+	t.Parallel()
+
 	handler := AuthMiddleware(&mockValidator{res: &auth.ValidateResult{OrgID: "org-a", Permissions: 0}}, logger.Discard("proxy"), AuthOptions{RequireProxyChatCompletion: true})(
 		http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) }),
 	)
@@ -74,6 +82,8 @@ func TestAuthMiddlewareInsufficientPermissions(t *testing.T) {
 }
 
 func TestAuthMiddlewareOrgMismatch(t *testing.T) {
+	t.Parallel()
+
 	handler := AuthMiddleware(&mockValidator{res: &auth.ValidateResult{OrgID: "org-a", Permissions: permissions.Admin}}, logger.Discard("proxy"), AuthOptions{PathOrgID: "org-b"})(
 		http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) }),
 	)
@@ -87,6 +97,8 @@ func TestAuthMiddlewareOrgMismatch(t *testing.T) {
 }
 
 func TestAuthMiddlewareSuccess(t *testing.T) {
+	t.Parallel()
+
 	var gotOrg string
 	handler := AuthMiddleware(&mockValidator{res: &auth.ValidateResult{OrgID: "org-a", Permissions: 42}}, logger.Discard("proxy"), AuthOptions{})(
 		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -126,6 +138,8 @@ func TestAuthMiddlewareMalformedBearerScheme(t *testing.T) {
 }
 
 func TestAuthMiddlewareUnexpectedError(t *testing.T) {
+	t.Parallel()
+
 	handler := AuthMiddleware(&mockValidator{err: errors.New("boom")}, logger.Discard("proxy"), AuthOptions{})(
 		http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) }),
 	)

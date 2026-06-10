@@ -637,18 +637,18 @@ jobs:
             ./packages/... ./services/auth/... ./services/proxy/...
       - name: Go integration coverage
         run: |
-          go test -tags=integration -count=1 -coverprofile=coverage-go-integration.out \
+          go test -tags=integration -count=1 -p 1 -coverprofile=coverage-go-integration.out \
             ./packages/... ./services/auth/... ./services/proxy/... ./infra/...
       - name: Merge coverage profiles
         run: |
-          go run github.com/wadey/gocovmerge@latest \
+          go run github.com/wadey/gocovmerge@v0.0.0-20190522175609-d3a3520791a5 \
             coverage-go-unit.out coverage-go-integration.out > coverage-go-merged.out
           bash infra/scripts/coverage-filter.sh coverage-go-merged.out coverage-go-handwritten.out
           go tool cover -func=coverage-go-handwritten.out | tail -1
       - name: Coverage gate
         run: bash infra/scripts/coverage-gate.sh coverage-go-merged.out
       - name: Upload coverage reports to Codecov
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@5a86932c025979fed89409cac756cf8e8e05d2d # v5.4.2
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: coverage-go-handwritten.out,coverage-go-unit.out,coverage-go-integration.out

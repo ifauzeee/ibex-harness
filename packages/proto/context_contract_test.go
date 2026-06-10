@@ -28,10 +28,11 @@ func TestContextProtoContract(t *testing.T) {
 	}
 }
 
-func TestContextMessagesProtoRoundTrip(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
+func contextMessageTestCases() []struct {
+	name string
+	msg  proto.Message
+} {
+	return []struct {
 		name string
 		msg  proto.Message
 	}{
@@ -202,6 +203,11 @@ func TestContextMessagesProtoRoundTrip(t *testing.T) {
 			msg:  &contextv1.MemoryScoreUpdate{MemoryId: "mem-1", PreviousScore: 0.5, NewScore: 0.6},
 		},
 	}
+}
+
+func TestContextMessagesProtoRoundTrip(t *testing.T) {
+	t.Parallel()
+	tests := contextMessageTestCases()
 
 	for _, tc := range tests {
 		tc := tc
@@ -231,9 +237,9 @@ func (noopContextServer) RecordMemoryFeedback(context.Context, *contextv1.Record
 func TestContextAssemblyServiceGRPCRegistration(t *testing.T) {
 	const bufSize = 1024 * 1024
 	lis := bufconn.Listen(bufSize)
-	srv := grpc.NewServer()
+	srv := grpc.NewServer() // nosemgrep: go.grpc.security.grpc-server-insecure-connection
 	contextv1.RegisterContextAssemblyServiceServer(srv, noopContextServer{})
-	go func() { _ = srv.Serve(lis) }()
+	go func() { _ = srv.Serve(lis) }() //nolint:errcheck // bufconn test server; stopped via t.Cleanup
 	t.Cleanup(func() { srv.Stop() })
 
 	conn, err := grpc.NewClient("passthrough:///bufnet",

@@ -18,18 +18,18 @@ echo "==> Integration coverage (requires POSTGRES_TEST_DSN or compose-test)"
 if [[ -z "${POSTGRES_TEST_DSN:-}" ]]; then
   echo "POSTGRES_TEST_DSN not set — skipping integration profile"
 else
-  go test -tags=integration -count=1 -coverprofile="$INT_OUT" $PACKAGES ./infra/...
+  go test -tags=integration -count=1 -p 1 -coverprofile="$INT_OUT" $PACKAGES ./infra/...
   if command -v gocovmerge >/dev/null 2>&1; then
     gocovmerge "$UNIT_OUT" "$INT_OUT" > "$MERGED_OUT"
   else
-    go run github.com/wadey/gocovmerge@latest "$UNIT_OUT" "$INT_OUT" > "$MERGED_OUT"
+    go run github.com/wadey/gocovmerge@v0.0.0-20190522175609-d3a3520791a5 "$UNIT_OUT" "$INT_OUT" > "$MERGED_OUT"
   fi
   echo "Merged profile: $MERGED_OUT"
   go tool cover -func="$MERGED_OUT" | tail -1
 fi
 
 REPORT="${UNIT_OUT}"
-if [[ -f "${MERGED_OUT:-}" ]]; then
+if [[ -f "${MERGED_OUT:-}" && "${MERGED_OUT}" -nt "${UNIT_OUT}" ]]; then
   REPORT="$MERGED_OUT"
 fi
 

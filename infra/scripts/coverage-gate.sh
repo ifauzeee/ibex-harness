@@ -4,7 +4,12 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-MIN="${MIN_COVERAGE:-94}"
+MIN_RAW="${MIN_COVERAGE:-94}"
+if ! [[ "$MIN_RAW" =~ ^[0-9]+$ ]]; then
+  echo "MIN_COVERAGE must be an integer, got: $MIN_RAW"
+  exit 1
+fi
+MIN="$MIN_RAW"
 PROFILE="${1:-coverage-go-merged.out}"
 
 if [[ ! -f "$PROFILE" ]]; then

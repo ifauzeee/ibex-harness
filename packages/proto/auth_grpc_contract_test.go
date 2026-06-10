@@ -38,9 +38,9 @@ func (noopAuthServer) ListTokens(context.Context, *authv1.ListTokensRequest) (*a
 func TestAuthServiceGRPCRegistration(t *testing.T) {
 	const bufSize = 1024 * 1024
 	lis := bufconn.Listen(bufSize)
-	srv := grpc.NewServer()
+	srv := grpc.NewServer() // nosemgrep: go.grpc.security.grpc-server-insecure-connection
 	authv1.RegisterAuthServiceServer(srv, noopAuthServer{})
-	go func() { _ = srv.Serve(lis) }()
+	go func() { _ = srv.Serve(lis) }() //nolint:errcheck // bufconn test server; stopped via t.Cleanup
 	t.Cleanup(func() { srv.Stop() })
 
 	conn, err := grpc.NewClient("passthrough:///bufnet",
