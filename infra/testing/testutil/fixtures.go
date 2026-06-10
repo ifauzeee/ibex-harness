@@ -5,10 +5,7 @@ package testutil
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"testing"
-
-	"github.com/google/uuid"
 )
 
 // SeedOrganization inserts a test organization and returns its ID.
@@ -65,51 +62,20 @@ func SeedAgent(t testing.TB, db *sql.DB, orgID, userID, name, slug string) strin
 	return id
 }
 
-// SeedToken inserts a hashed PAT for orgID and returns the plaintext bearer and token ID.
-func SeedToken(t testing.TB, db *sql.DB, orgID string, permissions int64) (plaintext string, tokenID uuid.UUID) {
+// SeedAgentWithStatus inserts an agent with the given status (active, paused, archived, suspended).
+func SeedAgentWithStatus(t testing.TB, db *sql.DB, orgID, userID, name, slug, agentStatus string) string {
 	t.Helper()
-	tokenID = uuid.New()
-	plaintext = fmt.Sprintf("ibex_pat_%s_integrationsecret", tokenID.String())
-	prefix := "ibex_pat_" + tokenID.String()
-	hash, err := hashBearerForTest(plaintext)
-	if err != nil {
-		t.Fatalf("hash token: %v", err)
-	}
 	ctx := context.Background()
-	err = WithServiceAccount(ctx, db, func(tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `
-			INSERT INTO ibex_core.tokens (org_id, type, hash, prefix, name, permissions, is_revoked, expires_at)
-			VALUES ($1::uuid, 'pat', $2, $3, 'test-pat', $4, false, NULL)`,
-			orgID, hash, prefix, permissions,
-		)
-		return err
+	var id string
+	err := WithServiceAccount(ctx, db, func(tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, `
+			INSERT INTO ibex_core.agents (org_id, created_by, name, slug, status)
+			VALUES ($1::uuid, $2::uuid, $3, $4, $5)
+			RETURNING id::text`, orgID, userID, name, slug, agentStatus,
+		).Scan(&id)
 	})
 	if err != nil {
-		t.Fatalf("seed token: %v", err)
+		t.Fatalf("seed agent with status %q: %v", agentStatus, err)
 	}
-	return plaintext, tokenID
-}
-
-// SeedTokenRevoked inserts a revoked token for negative-path tests.
-func SeedTokenRevoked(t testing.TB, db *sql.DB, orgID string, tokenID uuid.UUID, permissions int64) string {
-	t.Helper()
-	plaintext := fmt.Sprintf("ibex_pat_%s_revoked", tokenID.String())
-	prefix := "ibex_pat_" + tokenID.String()
-	hash, err := hashBearerForTest(plaintext)
-	if err != nil {
-		t.Fatalf("hash token: %v", err)
-	}
-	ctx := context.Background()
-	err = WithServiceAccount(ctx, db, func(tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `
-			INSERT INTO ibex_core.tokens (org_id, type, hash, prefix, name, permissions, is_revoked, expires_at)
-			VALUES ($1::uuid, 'pat', $2, $3, 'revoked', $4, true, NULL)`,
-			orgID, hash, prefix, permissions,
-		)
-		return err
-	})
-	if err != nil {
-		t.Fatalf("seed revoked token: %v", err)
-	}
-	return plaintext
+	return id
 }
