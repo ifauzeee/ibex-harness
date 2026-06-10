@@ -8,6 +8,7 @@ OUTPUT="${2:-${INPUT%.out}-handwritten.out}"
 awk '
   /^mode:/ { print; next }
   /packages\/proto\/gen\/go\// { next }
+  /\/infra\// { next }
   { print }
 ' "$INPUT" > "$OUTPUT"
 

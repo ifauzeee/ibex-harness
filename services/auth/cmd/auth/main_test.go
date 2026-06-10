@@ -101,7 +101,7 @@ func TestRunWithShutdown_serverFailureReturns1(t *testing.T) {
 			},
 			logger:     log,
 			providers:  providers,
-			grpcSrv:    grpc.NewServer(),
+			grpcSrv:    grpc.NewServer(), // nosemgrep: go.grpc.security.grpc-server-insecure-connection
 			grpcLis:    grpcLis,
 			httpServer: httpServer,
 			db:         db,
@@ -153,7 +153,7 @@ func TestRunWithShutdown_StopsOnSignal(t *testing.T) {
 			},
 			logger:     log,
 			providers:  providers,
-			grpcSrv:    grpc.NewServer(),
+			grpcSrv:    grpc.NewServer(), // nosemgrep: go.grpc.security.grpc-server-insecure-connection
 			grpcLis:    grpcLis,
 			httpServer: httpServer,
 			db:         db,

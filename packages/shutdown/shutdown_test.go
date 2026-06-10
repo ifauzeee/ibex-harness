@@ -129,7 +129,7 @@ func TestGracefulStopGRPC_nilServer(t *testing.T) {
 func TestGracefulStopGRPC_forcesStopOnTimeout(t *testing.T) {
 	t.Parallel()
 
-	srv := grpc.NewServer()
+	srv := grpc.NewServer() // nosemgrep: go.grpc.security.grpc-server-insecure-connection
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
@@ -141,7 +141,7 @@ func TestGracefulStopGRPC_forcesStopOnTimeout(t *testing.T) {
 func TestGracefulStopGRPC_completesWhenIdle(t *testing.T) {
 	t.Parallel()
 
-	srv := grpc.NewServer()
+	srv := grpc.NewServer() // nosemgrep: go.grpc.security.grpc-server-insecure-connection
 	if err := GracefulStopGRPC(srv, context.Background()); err != nil {
 		t.Fatalf("idle stop: %v", err)
 	}

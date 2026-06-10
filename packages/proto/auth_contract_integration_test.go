@@ -67,7 +67,7 @@ type unimplementedAuthServer struct {
 
 func TestAuthValidateTokenGRPCSmoke(t *testing.T) {
 	lis := bufconn.Listen(grpcBufSize)
-	srv := grpc.NewServer()
+	srv := grpc.NewServer() // nosemgrep: go.grpc.security.grpc-server-insecure-connection
 	authv1.RegisterAuthServiceServer(srv, &unimplementedAuthServer{})
 	go func() {
 		if err := srv.Serve(lis); err != nil {

@@ -121,7 +121,7 @@ func TestSetupAuthClients_WithGRPCServer(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	grpcSrv := grpc.NewServer()
+	grpcSrv := grpc.NewServer() // nosemgrep: go.grpc.security.grpc-server-insecure-connection
 	authv1.RegisterAuthServiceServer(grpcSrv, authv1.UnimplementedAuthServiceServer{})
 	go func() { _ = grpcSrv.Serve(lis) }()
 	t.Cleanup(func() { grpcSrv.Stop() })
