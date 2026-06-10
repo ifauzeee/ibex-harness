@@ -24,12 +24,12 @@
 | `proxy-auth-smoke` | `proxy-auth-smoke` | Full proxy unit + integration | Was informational | Promoted; `-count=1` |
 | `bandit` | `bandit` | Python SAST | **High until memory service:** exits 0 if missing | Not required until `services/memory` exists |
 | `hadolint` | `hadolint` | Dockerfile lint | Low (exits 0 if no Dockerfiles) | — |
+| `coverage` | `coverage` | Merged unit+integration Go coverage ≥94% on hand-written scope; Codecov upload | Medium: Postgres service required | `infra/scripts/coverage-gate.sh` filters `packages/proto/gen/go` |
 
 ## Informational checks (not merge-blocking)
 
 | Job | Notes |
 |-----|-------|
-| `coverage` | Codecov upload (Go unit); not required until baseline established; no harden-runner (Codecov CLI needs GPG key fetch + execute bit) |
 | `auth-validate-smoke` | Auth integration; `-count=1` |
 | `proxy-agent-verify-smoke` | SEC-2/SEC-3 subset; explicit `-run` + count guard |
 | `db-migrate-smoke` | Migration idempotency |
@@ -44,7 +44,7 @@
 
 - `golangci-lint` does not yet enable gocyclo/funlen/gosec from cursor rules
 - `infra/` Go packages not in golangci scope
-- Integration test coverage not in Codecov yet (Postgres required)
+- Merged integration coverage in Codecov via CI Postgres service; gen/go excluded from gate
 - Python (`bandit`) and TypeScript coverage flags when services land
 
 ## Manual ops

@@ -68,6 +68,7 @@ Every PR must pass these status checks (stable names for branch protection; see 
 | `golangci-lint` | Go lint (packages + auth + proxy) |
 | `bandit` | Python security lint (skips until `services/memory` exists) |
 | `hadolint` | Dockerfile best practices |
+| `coverage` | Merged Go coverage ≥94% on hand-written code (excludes `packages/proto/gen/go`) |
 
 Not required for merge (informational / supply chain): `scorecard`, `sbom` (Grype), `buf-lint`, `go-services`, smoke tests.
 
@@ -107,6 +108,11 @@ grype sbom:sbom.spdx.json --fail-on critical
 
 # Validate workflow YAML
 python3 -c "import yaml; import pathlib; [yaml.safe_load(p.read_text()) for p in pathlib.Path('.github/workflows').glob('*.yml')]"
+
+# Coverage (requires Postgres for merged profile; matches CI coverage job)
+make compose-test-up
+POSTGRES_TEST_DSN=postgres://ibex:ibex@localhost:5433/ibex_test?sslmode=disable make coverage-report
+make coverage-gate
 ```
 
 CI/security config changes: use [prompts/20-security-ci-audit.txt](prompts/20-security-ci-audit.txt).

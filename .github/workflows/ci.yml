@@ -598,6 +598,23 @@ jobs:
     name: coverage
     if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ibex
+          POSTGRES_PASSWORD: ibex
+          POSTGRES_DB: ibex
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ibex -d ibex"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      POSTGRES_TEST_DSN: postgres://ibex:ibex@localhost:5432/ibex?sslmode=disable
+      POSTGRES_MIGRATE_DSN: postgres://ibex:ibex@localhost:5432/ibex?sslmode=disable
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
@@ -612,16 +629,30 @@ jobs:
       - name: Generate protobuf stubs
         working-directory: packages/proto
         run: buf generate
+      - name: Migrate up
+        run: go run ./infra/migrations/postgres/cmd/migrate -command up
       - name: Go unit coverage
         run: |
           go test -count=1 -coverprofile=coverage-go-unit.out \
             ./packages/... ./services/auth/... ./services/proxy/...
+      - name: Go integration coverage
+        run: |
+          go test -tags=integration -count=1 -coverprofile=coverage-go-integration.out \
+            ./packages/... ./services/auth/... ./services/proxy/... ./infra/...
+      - name: Merge coverage profiles
+        run: |
+          go run github.com/wadey/gocovmerge@latest \
+            coverage-go-unit.out coverage-go-integration.out > coverage-go-merged.out
+          bash infra/scripts/coverage-filter.sh coverage-go-merged.out coverage-go-handwritten.out
+          go tool cover -func=coverage-go-handwritten.out | tail -1
+      - name: Coverage gate
+        run: bash infra/scripts/coverage-gate.sh coverage-go-merged.out
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          files: coverage-go-unit.out
-          flags: go,unit
+          files: coverage-go-handwritten.out,coverage-go-unit.out,coverage-go-integration.out
+          flags: go,unit,integration
           fail_ci_if_error: true
 
   bandit:

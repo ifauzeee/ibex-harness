@@ -637,13 +637,18 @@ Never ignore flakes. Flakes create blind spots where real regressions slip throu
 
 Coverage is a signal, not a goal — but we still enforce minimums:
 
-- Go: ≥ 80% for critical packages (auth, ratelimit, streaming)
+- Go merged profile (unit + integration), **hand-written scope only**: **≥ 94%** via `infra/scripts/coverage-gate.sh`
+- **Excluded from gate:** `packages/proto/gen/go/**` (generated protobuf). Contract tests remain in `packages/proto/`.
+- Go packages (`packages/*`, excluding gen): ≥ 90% statement coverage
+- Go middleware/store/grpc internals: per-package thresholds in `.cursor/rules/04-go-testing.mdc`
 - Python: ≥ 85% for algorithms and security-related code
 - TypeScript: ≥ 70% for core UI logic; E2E covers critical flows
 
+See [TEST_ARCHITECTURE.md](roadmap/phase-1-core-platform/TEST_ARCHITECTURE.md) for layout, fixture inventory, and tier policy.
+
 ### Codecov (CI)
 
-The `coverage` job uploads Go unit-test coverage to [Codecov](https://codecov.io/gh/Rick1330/ibex-harness) on every PR and `main` push (`codecov/codecov-action@v5`, flag `go,unit`). Integration tests (`-tags=integration`) are excluded initially — they require Postgres and are slower; a second profile with flag `go,integration` can be added when stable.
+The `coverage` job uploads Go coverage to [Codecov](https://codecov.io/gh/Rick1330/ibex-harness) on every PR and `main` push (`codecov/codecov-action@v5`, flags `go,unit,integration`). Unit and integration profiles are merged into `coverage-go-merged.out`; the gate filters out `gen/go` before enforcing 94%.
 
 | Language | When | Tool | Flag | Report file |
 | --- | --- | --- | --- | --- |
@@ -651,7 +656,7 @@ The `coverage` job uploads Go unit-test coverage to [Codecov](https://codecov.io
 | Python | Phase 2+ (`services/memory`) | `pytest --cov --cov-report=xml` | `python` | `coverage-python.xml` |
 | TypeScript | Phase 3+ (`apps/dashboard`) | `jest --coverage` | `typescript` | `coverage/lcov.info` |
 
-Repo root [`codecov.yml`](../codecov.yml) sets patch target 80% for new/changed lines; project target `auto` with 1% threshold. The `coverage` job is informational until a baseline exists on the Codecov dashboard — do not add it to branch protection until then.
+Repo root [`codecov.yml`](../codecov.yml) ignores `packages/proto/gen/go/**`, sets patch target 80%, and project target **94%** on meaningful code. The `coverage` job runs `infra/scripts/coverage-gate.sh` on the merged profile and **fails CI** when hand-written coverage is below 94%.
 
 More important than line coverage:
 
