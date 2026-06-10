@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/Rick1330/ibex-harness/infra/testing/testutil"
 	"github.com/Rick1330/ibex-harness/services/auth/internal/repository"
@@ -84,5 +85,61 @@ func TestValidateTokenIntegration(t *testing.T) {
 	}
 	if respB.GetOrgId() != orgB {
 		t.Fatalf("org b id: got %s want %s", respB.GetOrgId(), orgB)
+	}
+}
+
+func TestValidateTokenOptionalFields(t *testing.T) {
+	dsn, cleanup := testutil.SetupPostgres(t)
+	defer cleanup()
+
+	db := testutil.OpenDB(t, dsn)
+	defer db.Close()
+
+	repo := repository.NewTokensRepository(db, nil)
+	argon2 := token.DefaultArgon2Params()
+	validator := token.NewValidator(repo, argon2)
+
+	orgID := testutil.SeedOrganization(t, db, "Optional Fields Org", "opt-"+uuid.NewString()[:8])
+	userID := testutil.SeedUser(t, db, orgID, "opt-"+uuid.NewString()[:8]+"@test.local", "Opt User")
+	agentID := testutil.SeedAgent(t, db, orgID, userID, "Opt Agent", "opt-agent-"+uuid.NewString()[:8])
+
+	tokenID := uuid.New()
+	bearer := "ibex_pat_" + tokenID.String() + "_optionalfields"
+	prefix := "ibex_pat_" + tokenID.String()
+	hash, err := token.HashForTest(bearer, argon2)
+	if err != nil {
+		t.Fatalf("hash: %v", err)
+	}
+	expires := token.FutureExpiry()
+	_, err = repo.CreateToken(context.Background(), repository.CreateTokenParams{
+		ID:          tokenID.String(),
+		OrgID:       orgID,
+		Name:        "scoped-pat",
+		Hash:        hash,
+		Prefix:      prefix,
+		Permissions: 55,
+		UserID:      &userID,
+		AgentID:     &agentID,
+		ExpiresAt:   expires,
+	})
+	if err != nil {
+		t.Fatalf("insert scoped token: %v", err)
+	}
+
+	resp, err := validator.Validate(context.Background(), bearer)
+	if err != nil {
+		t.Fatalf("validate: %v", err)
+	}
+	if resp.GetUserId() != userID {
+		t.Fatalf("user_id: got %q want %q", resp.GetUserId(), userID)
+	}
+	if resp.GetAgentId() != agentID {
+		t.Fatalf("agent_id: got %q want %q", resp.GetAgentId(), agentID)
+	}
+	if resp.GetExpiresAt() == nil {
+		t.Fatal("expected expires_at in response")
+	}
+	if resp.GetExpiresAt().AsTime().UTC().Truncate(time.Second) != expires.UTC().Truncate(time.Second) {
+		t.Fatalf("expires_at mismatch: got %v want %v", resp.GetExpiresAt().AsTime(), expires)
 	}
 }

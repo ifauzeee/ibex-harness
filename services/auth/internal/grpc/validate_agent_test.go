@@ -2,6 +2,7 @@ package grpcserver
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/Rick1330/ibex-harness/packages/metrics"
@@ -146,6 +147,30 @@ func TestValidateAgent_InactiveAgentPermissionDenied(t *testing.T) {
 		OrgId:   orgID,
 	})
 	if status.Code(err) != codes.PermissionDenied {
+		t.Fatalf("code: %v", status.Code(err))
+	}
+}
+
+func TestValidateAgent_StoreError(t *testing.T) {
+	orgID := uuid.New().String()
+	agentID := uuid.New().String()
+	callerCtx := ContextWithCaller(context.Background(), CallerContext{
+		OrgID:   orgID,
+		TokenID: "t",
+	})
+
+	s := &Server{
+		metrics: testAuthRegistry(),
+		agentsStore: &fakeAgentsStore{
+			err: errors.New("db down"),
+		},
+	}
+
+	_, err := s.ValidateAgent(callerCtx, &authv1.ValidateAgentRequest{
+		AgentId: agentID,
+		OrgId:   orgID,
+	})
+	if status.Code(err) != codes.Internal {
 		t.Fatalf("code: %v", status.Code(err))
 	}
 }
