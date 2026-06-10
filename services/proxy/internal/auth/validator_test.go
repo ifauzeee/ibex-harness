@@ -21,7 +21,7 @@ func TestGRPCValidator_Validate(t *testing.T) {
 		orgID       = "550e8400-e29b-41d4-a716-446655440001"
 		agentID     = "550e8400-e29b-41d4-a716-446655440000"
 		userID      = "550e8400-e29b-41d4-a716-446655440002"
-		tokenID     = "test-token-id-1"
+		fixtureRef  = "test-token-id-1"
 		accessToken = "ibex_pat_test"
 	)
 
@@ -52,13 +52,13 @@ func TestGRPCValidator_Validate(t *testing.T) {
 						Permissions: 7,
 						AgentId:     strPtr(agentID),
 						UserId:      strPtr(userID),
-						TokenId:     strPtr(tokenID),
+						TokenId:     strPtr(fixtureRef),
 					}, nil
 				},
 			},
 			want: &ValidateResult{
 				OrgID: orgID, Permissions: 7,
-				AgentID: agentID, UserID: userID, TokenID: tokenID,
+				AgentID: agentID, UserID: userID, TokenID: fixtureRef,
 			},
 		},
 		{

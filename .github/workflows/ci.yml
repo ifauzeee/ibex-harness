@@ -648,7 +648,7 @@ jobs:
       - name: Coverage gate
         run: bash infra/scripts/coverage-gate.sh coverage-go-merged.out
       - name: Upload coverage reports to Codecov
-        uses: codecov/codecov-action@5a86932c025979fed89409cac756cf8e8e05d2d # v5.4.2
+        uses: codecov/codecov-action@ad3126e916f78f00edff4ed0317cf185271ccc2d # v5.4.2
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: coverage-go-handwritten.out,coverage-go-unit.out,coverage-go-integration.out
