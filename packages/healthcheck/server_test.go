@@ -82,6 +82,39 @@ func TestReadyHandler_CriticalFailure(t *testing.T) {
 	}
 }
 
+func TestReadyHandler_rejectsNonGET(t *testing.T) {
+	t.Parallel()
+
+	srv := &Server{
+		CriticalCheckers: map[string]Checker{
+			"a": func(ctx context.Context) error { return nil },
+		},
+	}
+	req := httptest.NewRequest(http.MethodPost, "/ready", nil)
+	rec := httptest.NewRecorder()
+	srv.ReadyHandler()(rec, req)
+
+	if rec.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("expected 405, got %d", rec.Code)
+	}
+	if rec.Header().Get("Allow") != http.MethodGet {
+		t.Fatalf("Allow header: %q", rec.Header().Get("Allow"))
+	}
+}
+
+func TestHealthHandler_rejectsNonGET(t *testing.T) {
+	t.Parallel()
+
+	srv := &Server{}
+	req := httptest.NewRequest(http.MethodPut, "/health", nil)
+	rec := httptest.NewRecorder()
+	srv.HealthHandler()(rec, req)
+
+	if rec.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("expected 405, got %d", rec.Code)
+	}
+}
+
 func TestReadyHandler_AdvisoryFailure(t *testing.T) {
 	t.Parallel()
 	srv := &Server{

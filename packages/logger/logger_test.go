@@ -85,6 +85,44 @@ func TestLogger_ForbiddenField(t *testing.T) {
 	}
 }
 
+func TestNew_requiresServiceName(t *testing.T) {
+	t.Parallel()
+	_, err := New(Config{})
+	if err == nil {
+		t.Fatal("expected error for empty service")
+	}
+}
+
+func TestDiscard_writesNowhere(t *testing.T) {
+	t.Parallel()
+	log := Discard("proxy")
+	log.InfoCtx(context.Background(), "discarded")
+}
+
+func TestLogger_allLevels(t *testing.T) {
+	t.Parallel()
+	var buf bytes.Buffer
+	log := testLogger(t, &buf)
+	ctx := context.Background()
+	log.DebugCtx(ctx, "debug")
+	log.WarnCtx(ctx, "warn")
+	log.ErrorCtx(ctx, "error")
+	if buf.Len() == 0 {
+		t.Fatal("expected log output")
+	}
+}
+
+func TestLogger_With(t *testing.T) {
+	t.Parallel()
+	var buf bytes.Buffer
+	log := testLogger(t, &buf).With("component", "middleware")
+	log.InfoCtx(context.Background(), "with attrs")
+	out := parseLogLine(t, &buf)
+	if out["component"] != "middleware" {
+		t.Fatalf("component: %v", out["component"])
+	}
+}
+
 func TestLogger_NoGlobalState(t *testing.T) {
 	var bufA bytes.Buffer
 	var bufB bytes.Buffer

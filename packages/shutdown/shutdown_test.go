@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/Rick1330/ibex-harness/packages/logger"
+	"google.golang.org/grpc"
 )
 
 func testLogger(t *testing.T) *logger.Logger {
@@ -96,6 +97,53 @@ func TestCoordinator_HandlerError(t *testing.T) {
 	}
 	if !ranSecond.Load() {
 		t.Fatal("second handler should run after first handler error")
+	}
+}
+
+func TestValidateTimeout(t *testing.T) {
+	t.Parallel()
+	if err := ValidateTimeout(0); err == nil {
+		t.Fatal("expected error for zero timeout")
+	}
+	if err := ValidateTimeout(time.Second); err != nil {
+		t.Fatalf("valid timeout: %v", err)
+	}
+}
+
+func TestCoordinator_NewUsesDefaultSignalChan(t *testing.T) {
+	t.Parallel()
+	coord := New(5*time.Second, testLogger(t))
+	if coord == nil {
+		t.Fatal("expected coordinator")
+	}
+}
+
+func TestGracefulStopGRPC_nilServer(t *testing.T) {
+	t.Parallel()
+
+	if err := GracefulStopGRPC(nil, context.Background()); err != nil {
+		t.Fatalf("nil server: %v", err)
+	}
+}
+
+func TestGracefulStopGRPC_forcesStopOnTimeout(t *testing.T) {
+	t.Parallel()
+
+	srv := grpc.NewServer()
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	if err := GracefulStopGRPC(srv, ctx); err == nil {
+		t.Fatal("expected context error")
+	}
+}
+
+func TestGracefulStopGRPC_completesWhenIdle(t *testing.T) {
+	t.Parallel()
+
+	srv := grpc.NewServer()
+	if err := GracefulStopGRPC(srv, context.Background()); err != nil {
+		t.Fatalf("idle stop: %v", err)
 	}
 }
 

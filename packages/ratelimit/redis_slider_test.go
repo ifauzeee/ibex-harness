@@ -102,6 +102,53 @@ func TestRedisSlider_orgOverride(t *testing.T) {
 	}
 }
 
+func TestNewRedisSlider_defaultRPMWhenZero(t *testing.T) {
+	t.Parallel()
+	mr := miniredis.RunT(t)
+	slider := NewRedisSlider(redis.NewClient(&redis.Options{Addr: mr.Addr()}), RedisSliderConfig{DefaultRPM: 0})
+	res, err := slider.Check(context.Background(), uuid.MustParse("550e8400-e29b-41d4-a716-446655440000"), uuid.Nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !res.Allowed || res.Limit != 60 {
+		t.Fatalf("result: %+v", res)
+	}
+}
+
+func TestRedisSlider_Check_redisError(t *testing.T) {
+	t.Parallel()
+	mr := miniredis.RunT(t)
+	client := redis.NewClient(&redis.Options{Addr: mr.Addr()})
+	mr.Close()
+	t.Cleanup(func() { _ = client.Close() })
+
+	slider := NewRedisSlider(client, RedisSliderConfig{DefaultRPM: 60})
+	_, err := slider.Check(context.Background(), uuid.MustParse("550e8400-e29b-41d4-a716-446655440000"), uuid.Nil)
+	if err == nil {
+		t.Fatal("expected redis infrastructure error")
+	}
+}
+
+func TestRedisSlider_orgOverrideZeroUsesDefault(t *testing.T) {
+	t.Parallel()
+	orgID := uuid.MustParse("550e8400-e29b-41d4-a716-446655440003")
+	mr := miniredis.RunT(t)
+	client := redis.NewClient(&redis.Options{Addr: mr.Addr()})
+	t.Cleanup(func() { _ = client.Close() })
+
+	slider := NewRedisSlider(client, RedisSliderConfig{
+		DefaultRPM:   60,
+		OrgOverrides: map[uuid.UUID]int64{orgID: 0},
+	})
+	res, err := slider.Check(context.Background(), orgID, uuid.Nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !res.Allowed || res.Limit != 60 {
+		t.Fatalf("result: %+v", res)
+	}
+}
+
 func TestNoop_alwaysAllows(t *testing.T) {
 	t.Parallel()
 
