@@ -69,6 +69,20 @@ func TestResponseHeadersMiddleware_setsHeaders(t *testing.T) {
 	}
 }
 
+func TestFormatMillis(t *testing.T) {
+	t.Parallel()
+
+	if got := formatMillis(0); got != "0" {
+		t.Fatalf("zero: %q", got)
+	}
+	if got := formatMillis(42); got != "42" {
+		t.Fatalf("positive: %q", got)
+	}
+	if got := formatMillis(-5); got != "0" {
+		t.Fatalf("negative: %q", got)
+	}
+}
+
 func TestBodySizeLimitMiddleware_enforcesOnRead(t *testing.T) {
 	handler := chain(
 		RequestContextMiddleware(config.Config{RequestIDHeader: "X-Request-ID", TraceIDHeader: "X-Trace-ID"}),

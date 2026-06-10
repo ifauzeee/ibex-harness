@@ -146,6 +146,25 @@ func TestRateLimitMiddleware_missingAuthContext(t *testing.T) {
 	}
 }
 
+func TestRateLimitMiddleware_invalidOrgID(t *testing.T) {
+	t.Parallel()
+
+	handler := RateLimitMiddleware(&mockLimiter{}, logger.Discard("proxy"), metrics.NewProxy("test"))(
+		http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusOK)
+		}),
+	)
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/v1/internal/auth-probe", nil)
+	req = req.WithContext(auth.WithContext(req.Context(), &auth.ValidateResult{OrgID: "not-a-uuid"}))
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("status: %d body=%s", rec.Code, rec.Body.String())
+	}
+}
+
 func TestRetryAfterSeconds(t *testing.T) {
 	t.Parallel()
 	if got := retryAfterSeconds(0); got != 1 {

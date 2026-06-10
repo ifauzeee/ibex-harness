@@ -126,6 +126,47 @@ func TestChatCompletions_emptyMessages_returns400(t *testing.T) {
 	}
 }
 
+func TestChatCompletions_unsupportedMediaType_returns415(t *testing.T) {
+	validator := &chatMockValidator{res: &auth.ValidateResult{
+		OrgID: testChatOrgID, Permissions: permissions.ProxyChatCompletion,
+	}}
+	cfg := config.Config{Environment: "test", ServiceName: "proxy", Port: "8080", MaxRequestBodyBytes: 1 << 20, RequestIDHeader: "X-Request-ID", TraceIDHeader: "X-Trace-ID"}
+	handler := newTestRouter(cfg, validator, ratelimit.Noop())
+
+	body := `{"model":"gpt-4","messages":[{"role":"user","content":"hi"}]}`
+	req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(body))
+	req.Header.Set("Authorization", "Bearer ibex_pat_test")
+	req.Header.Set("Content-Type", "text/plain")
+	req.Header.Set("X-IBEX-Agent-ID", "550e8400-e29b-41d4-a716-446655440000")
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusUnsupportedMediaType {
+		t.Fatalf("status: %d body=%s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), string(apierror.CodeUnsupportedMediaType)) {
+		t.Fatalf("body: %s", rec.Body.String())
+	}
+}
+
+func TestChatCompletions_methodNotAllowed_returns405(t *testing.T) {
+	validator := &chatMockValidator{res: &auth.ValidateResult{
+		OrgID: testChatOrgID, Permissions: permissions.ProxyChatCompletion,
+	}}
+	cfg := config.Config{Environment: "test", ServiceName: "proxy", Port: "8080", MaxRequestBodyBytes: 1 << 20, RequestIDHeader: "X-Request-ID", TraceIDHeader: "X-Trace-ID"}
+	handler := newTestRouter(cfg, validator, ratelimit.Noop())
+
+	req := httptest.NewRequest(http.MethodGet, "/v1/chat/completions", nil)
+	req.Header.Set("Authorization", "Bearer ibex_pat_test")
+	req.Header.Set("X-IBEX-Agent-ID", "550e8400-e29b-41d4-a716-446655440000")
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("status: %d body=%s", rec.Code, rec.Body.String())
+	}
+}
+
 func TestChatCompletions_validatorError_returns503(t *testing.T) {
 	validator := &chatMockValidator{err: auth.ErrAuthUnavailable}
 	cfg := config.Config{Environment: "test", ServiceName: "proxy", Port: "8080", MaxRequestBodyBytes: 1 << 20, RequestIDHeader: "X-Request-ID", TraceIDHeader: "X-Trace-ID"}

@@ -7,10 +7,11 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	apierror "github.com/Rick1330/ibex-harness/packages/apierror"
 	"github.com/Rick1330/ibex-harness/packages/logger"
-
 	"github.com/Rick1330/ibex-harness/packages/permissions"
 	"github.com/Rick1330/ibex-harness/services/proxy/internal/auth"
+	"strings"
 )
 
 type mockValidator struct {
@@ -103,6 +104,24 @@ func TestAuthMiddlewareSuccess(t *testing.T) {
 	handler.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK || gotOrg != "org-a" {
 		t.Fatalf("status=%d org=%s", rec.Code, gotOrg)
+	}
+}
+
+func TestAuthMiddlewareMalformedBearerScheme(t *testing.T) {
+	t.Parallel()
+
+	handler := AuthMiddleware(&mockValidator{}, logger.Discard("proxy"), AuthOptions{})(
+		http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) }),
+	)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/v1/internal/auth-probe", nil)
+	req.Header.Set("Authorization", "Basic dXNlcjpwYXNz")
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("status: %d body=%s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), string(apierror.CodeInvalidToken)) {
+		t.Fatalf("body: %s", rec.Body.String())
 	}
 }
 

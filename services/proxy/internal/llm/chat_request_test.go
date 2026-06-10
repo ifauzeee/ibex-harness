@@ -75,6 +75,42 @@ func TestParseChatCompletionRequest_missingMessagesOK(t *testing.T) {
 	}
 }
 
+func TestParseChatCompletionRequest_trailingDataRejected(t *testing.T) {
+	_, err := ParseChatCompletionRequest(strings.NewReader(`{"model":"m","messages":[]}{}`))
+	if !errors.Is(err, ErrInvalidJSON) {
+		t.Fatalf("err: %v", err)
+	}
+}
+
+func TestParseChatCompletionRequest_streamTrue(t *testing.T) {
+	body := `{"model":"m","messages":[],"stream":true}`
+	req, err := ParseChatCompletionRequest(strings.NewReader(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !req.Stream {
+		t.Fatal("expected stream true")
+	}
+}
+
+func TestParseChatCompletionRequest_messageInvalidJSON(t *testing.T) {
+	_, err := ParseChatCompletionRequest(strings.NewReader(`{"model":"m","messages":[{"role":]}`))
+	if !errors.Is(err, ErrInvalidJSON) {
+		t.Fatalf("err: %v", err)
+	}
+}
+
+func TestParseChatCompletionRequest_maxTokensPreserved(t *testing.T) {
+	body := `{"model":"m","messages":[],"max_tokens":128}`
+	req, err := ParseChatCompletionRequest(strings.NewReader(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if req.MaxTokens == nil || *req.MaxTokens != 128 {
+		t.Fatalf("max_tokens: %v", req.MaxTokens)
+	}
+}
+
 func TestParseChatCompletionRequest_emptyModelOK(t *testing.T) {
 	req, err := ParseChatCompletionRequest(strings.NewReader(`{"messages":[]}`))
 	if err != nil {

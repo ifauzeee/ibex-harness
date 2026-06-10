@@ -85,6 +85,70 @@ func TestValidateChatCompletionRequest_aggregatesMultiple(t *testing.T) {
 	}
 }
 
+func TestValidateChatCompletionRequest_nilRequest(t *testing.T) {
+	got := ValidateChatCompletionRequest(nil)
+	if len(got) != 1 || got[0].Field != "body" || got[0].Code != fieldCodeRequired {
+		t.Fatalf("got %+v", got)
+	}
+}
+
+func TestValidateChatCompletionRequest_modelTooLong(t *testing.T) {
+	req := &llm.ChatCompletionRequest{
+		Model:    strings.Repeat("m", MaxModelNameLength+1),
+		Messages: []llm.Message{{Role: "user", Content: "hi"}},
+	}
+	got := ValidateChatCompletionRequest(req)
+	if len(got) != 1 || got[0].Field != "model" || got[0].Code != fieldCodeTooLong {
+		t.Fatalf("got %+v", got)
+	}
+}
+
+func TestValidateChatCompletionRequest_tooManyMessages(t *testing.T) {
+	msgs := make([]llm.Message, MaxMessagesPerRequest+1)
+	for i := range msgs {
+		msgs[i] = llm.Message{Role: "user", Content: "x"}
+	}
+	got := ValidateChatCompletionRequest(&llm.ChatCompletionRequest{Model: "gpt-4", Messages: msgs})
+	found := false
+	for _, fe := range got {
+		if fe.Field == "messages" && fe.Code == fieldCodeTooMany {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("expected TOO_MANY on messages: %+v", got)
+	}
+}
+
+func TestValidateChatCompletionRequest_maxTokensTooHigh(t *testing.T) {
+	high := MaxChatMaxTokens + 1
+	got := ValidateChatCompletionRequest(&llm.ChatCompletionRequest{
+		Model: "gpt-4", Messages: []llm.Message{{Role: "user", Content: "x"}},
+		MaxTokens: &high,
+	})
+	if len(got) != 1 || got[0].Field != "max_tokens" || got[0].Code != fieldCodeTooLong {
+		t.Fatalf("got %+v", got)
+	}
+}
+
+func TestValidateChatCompletionRequest_emptyRole(t *testing.T) {
+	got := ValidateChatCompletionRequest(&llm.ChatCompletionRequest{
+		Model: "gpt-4", Messages: []llm.Message{{Role: "  ", Content: "hi"}},
+	})
+	if len(got) != 1 || got[0].Field != "messages[0].role" {
+		t.Fatalf("got %+v", got)
+	}
+}
+
+func TestValidateChatCompletionRequest_whitespaceModel(t *testing.T) {
+	got := ValidateChatCompletionRequest(&llm.ChatCompletionRequest{
+		Model: "   ", Messages: []llm.Message{{Role: "user", Content: "hi"}},
+	})
+	if len(got) != 1 || got[0].Field != "model" {
+		t.Fatalf("got %+v", got)
+	}
+}
+
 func TestValidateChatCompletionRequest_contentTooLong(t *testing.T) {
 	req := &llm.ChatCompletionRequest{
 		Model:    "gpt-4",
