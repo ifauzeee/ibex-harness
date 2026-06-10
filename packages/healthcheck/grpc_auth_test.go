@@ -2,6 +2,7 @@ package healthcheck
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -56,8 +57,8 @@ func TestAuthGRPC_UnavailableFails(t *testing.T) {
 func TestAuthGRPC_NilClient(t *testing.T) {
 	t.Parallel()
 	err := AuthGRPC(nil, time.Second)(context.Background())
-	if err == nil {
-		t.Fatal("expected error")
+	if !errors.Is(err, ErrAuthGRPCClientNotConfigured) {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
@@ -79,7 +80,7 @@ func TestAuthGRPC_timeout(t *testing.T) {
 
 	client := &mockAuthClient{err: status.Error(codes.Unavailable, "slow")}
 	err := AuthGRPC(client, time.Millisecond)(ctx)
-	if err == nil || err.Error() != "auth grpc readiness check timed out" {
+	if !errors.Is(err, ErrAuthGRPCReadinessTimeout) {
 		t.Fatalf("unexpected: %v", err)
 	}
 }

@@ -57,15 +57,23 @@ func TestConfigFromEnv_missingServiceName(t *testing.T) {
 
 func TestConfigFromEnv_invalidSampleRatio(t *testing.T) {
 	t.Setenv("OTEL_SERVICE_NAME", "proxy")
-	t.Setenv("OTEL_SAMPLE_RATIO", "2")
-	_, err := telemetry.ConfigFromEnv("proxy", "development")
-	if err == nil {
-		t.Fatal("expected error for ratio > 1")
+
+	tests := []struct {
+		name  string
+		ratio string
+	}{
+		{name: "above one", ratio: "2"},
+		{name: "not a float", ratio: "not-a-float"},
 	}
 
-	t.Setenv("OTEL_SAMPLE_RATIO", "not-a-float")
-	_, err = telemetry.ConfigFromEnv("proxy", "development")
-	if err == nil {
-		t.Fatal("expected error for non-float ratio")
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv("OTEL_SAMPLE_RATIO", tc.ratio)
+			_, err := telemetry.ConfigFromEnv("proxy", "development")
+			if err == nil {
+				t.Fatal("expected error")
+			}
+		})
 	}
 }

@@ -8,6 +8,8 @@ import (
 )
 
 func TestValidateChatCompletionRequest(t *testing.T) {
+	t.Parallel()
+
 	temp := 3.0
 	maxTok := 0
 	tests := []struct {

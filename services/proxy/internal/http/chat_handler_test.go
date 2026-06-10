@@ -26,6 +26,8 @@ func (m *chatMockValidator) Validate(_ context.Context, _ string) (*auth.Validat
 }
 
 func TestChatCompletions_validJSON_returns501(t *testing.T) {
+	t.Parallel()
+
 	validator := &chatMockValidator{res: &auth.ValidateResult{
 		OrgID: testChatOrgID, Permissions: permissions.ProxyChatCompletion,
 	}}
@@ -49,6 +51,8 @@ func TestChatCompletions_validJSON_returns501(t *testing.T) {
 }
 
 func TestChatCompletions_invalidJSON_returns400(t *testing.T) {
+	t.Parallel()
+
 	validator := &chatMockValidator{res: &auth.ValidateResult{
 		OrgID: testChatOrgID, Permissions: permissions.ProxyChatCompletion,
 	}}
@@ -71,6 +75,8 @@ func TestChatCompletions_invalidJSON_returns400(t *testing.T) {
 }
 
 func TestChatCompletions_noAuth_returns401(t *testing.T) {
+	t.Parallel()
+
 	validator := &chatMockValidator{res: &auth.ValidateResult{OrgID: testChatOrgID, Permissions: permissions.ProxyChatCompletion}}
 	cfg := config.Config{Environment: "test", ServiceName: "proxy", Port: "8080", MaxRequestBodyBytes: 1 << 20, RequestIDHeader: "X-Request-ID", TraceIDHeader: "X-Trace-ID"}
 	handler := newTestRouter(cfg, validator, ratelimit.Noop())
@@ -86,6 +92,8 @@ func TestChatCompletions_noAuth_returns401(t *testing.T) {
 }
 
 func TestChatCompletions_missingAgentID_returns400(t *testing.T) {
+	t.Parallel()
+
 	validator := &chatMockValidator{res: &auth.ValidateResult{
 		OrgID: testChatOrgID, Permissions: permissions.ProxyChatCompletion,
 	}}
@@ -108,6 +116,8 @@ func TestChatCompletions_missingAgentID_returns400(t *testing.T) {
 }
 
 func TestChatCompletions_emptyMessages_returns400(t *testing.T) {
+	t.Parallel()
+
 	validator := &chatMockValidator{res: &auth.ValidateResult{
 		OrgID: testChatOrgID, Permissions: permissions.ProxyChatCompletion,
 	}}
@@ -127,6 +137,8 @@ func TestChatCompletions_emptyMessages_returns400(t *testing.T) {
 }
 
 func TestChatCompletions_unsupportedMediaType_returns415(t *testing.T) {
+	t.Parallel()
+
 	validator := &chatMockValidator{res: &auth.ValidateResult{
 		OrgID: testChatOrgID, Permissions: permissions.ProxyChatCompletion,
 	}}
@@ -150,6 +162,8 @@ func TestChatCompletions_unsupportedMediaType_returns415(t *testing.T) {
 }
 
 func TestChatCompletions_methodNotAllowed_returns405(t *testing.T) {
+	t.Parallel()
+
 	validator := &chatMockValidator{res: &auth.ValidateResult{
 		OrgID: testChatOrgID, Permissions: permissions.ProxyChatCompletion,
 	}}
@@ -168,6 +182,8 @@ func TestChatCompletions_methodNotAllowed_returns405(t *testing.T) {
 }
 
 func TestChatCompletions_validatorError_returns503(t *testing.T) {
+	t.Parallel()
+
 	validator := &chatMockValidator{err: auth.ErrAuthUnavailable}
 	cfg := config.Config{Environment: "test", ServiceName: "proxy", Port: "8080", MaxRequestBodyBytes: 1 << 20, RequestIDHeader: "X-Request-ID", TraceIDHeader: "X-Trace-ID"}
 	handler := newTestRouter(cfg, validator, ratelimit.Noop())

@@ -30,6 +30,8 @@ func (f *fakeAgentsStore) GetByIDAndOrg(ctx context.Context, agentID, orgID uuid
 }
 
 func TestValidateAgent_MissingCallerContext(t *testing.T) {
+	t.Parallel()
+
 	s := &Server{
 		metrics:     testAuthRegistry(),
 		agentsStore: &fakeAgentsStore{rec: nil},
@@ -45,6 +47,8 @@ func TestValidateAgent_MissingCallerContext(t *testing.T) {
 }
 
 func TestValidateAgent_ForbiddenOrgMismatch(t *testing.T) {
+	t.Parallel()
+
 	callerCtx := ContextWithCaller(context.Background(), CallerContext{
 		OrgID:   "00000000-0000-0000-0000-000000000001",
 		TokenID: "t",
@@ -64,6 +68,8 @@ func TestValidateAgent_ForbiddenOrgMismatch(t *testing.T) {
 }
 
 func TestValidateAgent_InvalidOrgId(t *testing.T) {
+	t.Parallel()
+
 	// Make caller.OrgID match request.OrgID so we reach uuid.Parse failure.
 	callerCtx := ContextWithCaller(context.Background(), CallerContext{
 		OrgID:   "not-a-uuid",
@@ -84,6 +90,8 @@ func TestValidateAgent_InvalidOrgId(t *testing.T) {
 }
 
 func TestValidateAgent_InvalidAgentId(t *testing.T) {
+	t.Parallel()
+
 	orgID := uuid.New().String()
 	callerCtx := ContextWithCaller(context.Background(), CallerContext{
 		OrgID:   orgID,
@@ -104,6 +112,8 @@ func TestValidateAgent_InvalidAgentId(t *testing.T) {
 }
 
 func TestValidateAgent_NotFoundBecomesPermissionDenied(t *testing.T) {
+	t.Parallel()
+
 	orgID := uuid.New().String()
 	agentID := uuid.New().String()
 	callerCtx := ContextWithCaller(context.Background(), CallerContext{
@@ -126,6 +136,8 @@ func TestValidateAgent_NotFoundBecomesPermissionDenied(t *testing.T) {
 }
 
 func TestValidateAgent_InactiveAgentPermissionDenied(t *testing.T) {
+	t.Parallel()
+
 	orgID := uuid.New().String()
 	agentID := uuid.New().String()
 	callerCtx := ContextWithCaller(context.Background(), CallerContext{
@@ -152,6 +164,8 @@ func TestValidateAgent_InactiveAgentPermissionDenied(t *testing.T) {
 }
 
 func TestValidateAgent_StoreError(t *testing.T) {
+	t.Parallel()
+
 	orgID := uuid.New().String()
 	agentID := uuid.New().String()
 	callerCtx := ContextWithCaller(context.Background(), CallerContext{
@@ -176,6 +190,8 @@ func TestValidateAgent_StoreError(t *testing.T) {
 }
 
 func TestValidateAgent_OK(t *testing.T) {
+	t.Parallel()
+
 	orgID := uuid.New().String()
 	agentID := uuid.New().String()
 	callerCtx := ContextWithCaller(context.Background(), CallerContext{

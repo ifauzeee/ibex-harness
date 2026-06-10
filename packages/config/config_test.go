@@ -53,8 +53,6 @@ type nestedConfig struct {
 }
 
 func TestLogDebug_redactsSecretsAndNestedStructs(t *testing.T) {
-	t.Parallel()
-
 	var buf strings.Builder
 	old := slog.Default()
 	slog.SetDefault(slog.New(slog.NewJSONHandler(&buf, &slog.HandlerOptions{Level: slog.LevelDebug})))
@@ -89,8 +87,6 @@ func TestLogDebug_redactsSecretsAndNestedStructs(t *testing.T) {
 }
 
 func TestLogDebug_redactsNonStructValue(t *testing.T) {
-	t.Parallel()
-
 	var buf strings.Builder
 	old := slog.Default()
 	slog.SetDefault(slog.New(slog.NewJSONHandler(&buf, &slog.HandlerOptions{Level: slog.LevelDebug})))
@@ -103,8 +99,6 @@ func TestLogDebug_redactsNonStructValue(t *testing.T) {
 }
 
 func TestLogDebug_usesFieldNameWhenNoEnvTag(t *testing.T) {
-	t.Parallel()
-
 	var buf strings.Builder
 	old := slog.Default()
 	slog.SetDefault(slog.New(slog.NewJSONHandler(&buf, &slog.HandlerOptions{Level: slog.LevelDebug})))

@@ -23,7 +23,8 @@
 |----------|-------|-------|
 | Unit `*_test.go` | **75** | Colocated; no gen/go mechanical tests |
 | Integration `//go:build integration` | **22** | Postgres, SEC suite, proxy→auth E2E |
-| **Total** | **89** files | −8 Tier B deletions from pre-audit 97 |
+| Pre-audit total | **97** | Before Tier B deletions |
+| **Net total** | **89** files | 97 − 8 deleted gen/go padding tests |
 
 ### By tier (Phase 0)
 
@@ -57,7 +58,7 @@ bash infra/scripts/coverage-gate.sh coverage-go-merged.out
 
 ## 4. Bugs found
 
-**None** during this transformation. No assertion weakening; no green-chase edits to production code.
+**ListTokens keyset cursor** (fixed in PR #92): composite `(created_at, id)` cursor now matches `ORDER BY created_at DESC, id DESC`. Previously page 2 could omit or duplicate rows when multiple tokens shared a timestamp bucket.
 
 ---
 

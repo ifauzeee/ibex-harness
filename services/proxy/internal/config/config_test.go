@@ -38,6 +38,8 @@ func TestLoadRejectsInvalidLogLevel(t *testing.T) {
 }
 
 func TestValidateRejectsInvalidEnvironment(t *testing.T) {
+	t.Parallel()
+
 	cfg := Config{
 		Environment: "prod",
 		ServiceName: "proxy",
@@ -50,6 +52,8 @@ func TestValidateRejectsInvalidEnvironment(t *testing.T) {
 }
 
 func TestValidateAcceptsDefaultShape(t *testing.T) {
+	t.Parallel()
+
 	cfg := Config{
 		Environment:         "development",
 		ServiceName:         "proxy",
@@ -68,6 +72,8 @@ func TestValidateAcceptsDefaultShape(t *testing.T) {
 }
 
 func TestApplyDefaultsZeroConfigValidates(t *testing.T) {
+	t.Parallel()
+
 	var cfg Config
 	cfg.ApplyDefaults()
 	cfg.Environment = "development"

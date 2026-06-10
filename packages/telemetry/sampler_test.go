@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/Rick1330/ibex-harness/packages/telemetry"
-	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 )
 
 func TestParentBasedSampler_zeroRatioUsesDefault(t *testing.T) {
@@ -20,5 +19,18 @@ func TestParentBasedSampler_zeroRatioUsesDefault(t *testing.T) {
 	if providers.TracerProvider == nil {
 		t.Fatal("expected tracer provider")
 	}
-	_ = sdktrace.AlwaysSample()
+	t.Cleanup(func() { _ = providers.Shutdown(t.Context()) })
+}
+
+func TestParentBasedSampler_defaultRatioFromEnv(t *testing.T) {
+	t.Setenv("OTEL_SERVICE_NAME", "proxy")
+	t.Setenv("OTEL_SAMPLE_RATIO", "")
+
+	cfg, err := telemetry.ConfigFromEnv("proxy", "development")
+	if err != nil {
+		t.Fatalf("ConfigFromEnv: %v", err)
+	}
+	if cfg.SampleRatio != 0.01 {
+		t.Fatalf("default sample ratio: got %f want 0.01", cfg.SampleRatio)
+	}
 }

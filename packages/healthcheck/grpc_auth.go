@@ -15,6 +15,12 @@ const probeToken = "ibex_health_probe_invalid"
 
 const defaultGRPCProbeTimeout = 500 * time.Millisecond
 
+var (
+	ErrAuthGRPCClientNotConfigured = errors.New("auth grpc client not configured")
+	ErrAuthGRPCReadinessTimeout    = errors.New("auth grpc readiness check timed out")
+	ErrAuthGRPCUnreachable         = errors.New("auth grpc unreachable")
+)
+
 // AuthGRPC returns a checker that calls ValidateToken with a sentinel invalid token.
 // codes.Unauthenticated means the auth service is reachable.
 func AuthGRPC(client authv1.AuthServiceClient, timeout time.Duration) Checker {
@@ -23,7 +29,7 @@ func AuthGRPC(client authv1.AuthServiceClient, timeout time.Duration) Checker {
 	}
 	return func(ctx context.Context) error {
 		if client == nil {
-			return errors.New("auth grpc client not configured")
+			return ErrAuthGRPCClientNotConfigured
 		}
 		callCtx, cancel := context.WithTimeout(ctx, timeout)
 		defer cancel()
@@ -36,8 +42,8 @@ func AuthGRPC(client authv1.AuthServiceClient, timeout time.Duration) Checker {
 			return nil
 		}
 		if errors.Is(callCtx.Err(), context.DeadlineExceeded) {
-			return errors.New("auth grpc readiness check timed out")
+			return ErrAuthGRPCReadinessTimeout
 		}
-		return errors.New("auth grpc unreachable")
+		return ErrAuthGRPCUnreachable
 	}
 }

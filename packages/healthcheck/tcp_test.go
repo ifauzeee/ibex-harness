@@ -2,6 +2,7 @@ package healthcheck
 
 import (
 	"context"
+	"errors"
 	"net"
 	"testing"
 	"time"
@@ -11,7 +12,7 @@ func TestTCPReachable_missingAddress(t *testing.T) {
 	t.Parallel()
 
 	err := TCPReachable("")(context.Background())
-	if err == nil || err.Error() != "tcp address not configured" {
+	if !errors.Is(err, ErrTCPAddressNotConfigured) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
@@ -62,7 +63,7 @@ func TestTCPReachable_contextTimeout(t *testing.T) {
 	cancel()
 
 	err := TCPReachable("127.0.0.1:9")(ctx)
-	if err == nil || err.Error() != "tcp readiness check timed out" {
+	if !errors.Is(err, ErrTCPReadinessTimeout) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }

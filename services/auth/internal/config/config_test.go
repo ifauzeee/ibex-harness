@@ -7,6 +7,8 @@ import (
 )
 
 func TestValidateRejectsInvalidPort(t *testing.T) {
+	t.Parallel()
+
 	cfg := Config{
 		Environment: "development",
 		ServiceName: "auth",
@@ -27,6 +29,8 @@ func TestLoadRejectsNonPositiveShutdownTimeout(t *testing.T) {
 }
 
 func TestValidateRejectsInvalidEnvironment(t *testing.T) {
+	t.Parallel()
+
 	cfg := Config{
 		Environment: "prod",
 		ServiceName: "auth",
@@ -40,6 +44,8 @@ func TestValidateRejectsInvalidEnvironment(t *testing.T) {
 }
 
 func TestValidateRejectsMissingPostgresDSN(t *testing.T) {
+	t.Parallel()
+
 	cfg := Config{
 		Environment: "development",
 		ServiceName: "auth",
@@ -52,6 +58,8 @@ func TestValidateRejectsMissingPostgresDSN(t *testing.T) {
 }
 
 func TestValidateRejectsEmptyServiceName(t *testing.T) {
+	t.Parallel()
+
 	cfg := Config{
 		Environment: "development",
 		ServiceName: "",
@@ -98,6 +106,8 @@ func TestLoadRejectsInvalidLogLevel(t *testing.T) {
 }
 
 func TestValidateAcceptsDefaultShape(t *testing.T) {
+	t.Parallel()
+
 	cfg := Config{
 		Environment:     "development",
 		ServiceName:     "auth",
