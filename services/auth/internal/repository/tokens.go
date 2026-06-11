@@ -247,15 +247,28 @@ func decodeTokenCursor(cursor string) (time.Time, string, error) {
 	if cursor == "" {
 		return time.Time{}, "", nil
 	}
+	nano, id, err := parseTokenCursorParts(cursor)
+	if err != nil {
+		return time.Time{}, "", err
+	}
+	return time.Unix(0, nano).UTC(), id, nil
+}
+
+func parseTokenCursorParts(cursor string) (nano int64, id string, err error) {
 	parts := strings.SplitN(cursor, "|", 2)
-	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
-		return time.Time{}, "", fmt.Errorf("invalid cursor %q", cursor)
+	if len(parts) != 2 {
+		return 0, "", fmt.Errorf("invalid cursor %q", cursor)
 	}
-	var nano int64
+	if parts[0] == "" {
+		return 0, "", fmt.Errorf("invalid cursor %q", cursor)
+	}
+	if parts[1] == "" {
+		return 0, "", fmt.Errorf("invalid cursor %q", cursor)
+	}
 	if _, err := fmt.Sscanf(parts[0], "%d", &nano); err != nil {
-		return time.Time{}, "", fmt.Errorf("invalid cursor timestamp: %w", err)
+		return 0, "", fmt.Errorf("invalid cursor timestamp: %w", err)
 	}
-	return time.Unix(0, nano).UTC(), parts[1], nil
+	return nano, parts[1], nil
 }
 
 // InsertTestOrganization inserts an organization (integration tests only).

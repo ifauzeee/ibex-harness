@@ -141,16 +141,7 @@ func runWithShutdown(opts shutdownOpts) int {
 	} else {
 		sd = shutdown.New(opts.cfg.ShutdownTimeout, opts.logger)
 	}
-	sd.Register(opts.providers.Shutdown)
-	sd.Register(func(ctx context.Context) error {
-		return shutdown.GracefulStopGRPC(opts.grpcSrv, ctx)
-	})
-	sd.Register(func(ctx context.Context) error {
-		return opts.httpServer.Shutdown(ctx)
-	})
-	sd.Register(func(ctx context.Context) error {
-		return opts.db.Close()
-	})
+	registerAuthShutdownHooks(sd, opts)
 
 	shutdownErrCh := make(chan error, 1)
 	go func() {
@@ -170,4 +161,17 @@ func runWithShutdown(opts shutdownOpts) int {
 		opts.logger.InfoCtx(context.Background(), "service stopped")
 	}
 	return 0
+}
+
+func registerAuthShutdownHooks(sd *shutdown.Coordinator, opts shutdownOpts) {
+	sd.Register(opts.providers.Shutdown)
+	sd.Register(func(ctx context.Context) error {
+		return shutdown.GracefulStopGRPC(opts.grpcSrv, ctx)
+	})
+	sd.Register(func(ctx context.Context) error {
+		return opts.httpServer.Shutdown(ctx)
+	})
+	sd.Register(func(ctx context.Context) error {
+		return opts.db.Close()
+	})
 }
