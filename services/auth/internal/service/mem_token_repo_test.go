@@ -37,21 +37,15 @@ type revokeTokenInput struct {
 	reason    *string
 }
 
-func tokenMissingForRevoke(p repository.CreateTokenParams, ok bool, orgID, tokenID string, revoked map[string]bool) bool {
-	if !ok {
-		return true
-	}
-	if p.OrgID != orgID {
-		return true
-	}
-	return revoked[tokenID]
+func (m *memTokenRepo) RevokeToken(_ context.Context, orgID, tokenID, revokedBy string, reason *string) error {
+	return m.revoke(revokeTokenInput{orgID: orgID, tokenID: tokenID, revokedBy: revokedBy, reason: reason})
 }
 
 func (m *memTokenRepo) revoke(in revokeTokenInput) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	p, ok := m.tokens[in.tokenID]
-	if tokenMissingForRevoke(p, ok, in.orgID, in.tokenID, m.revoked) {
+	if !ok || p.OrgID != in.orgID || m.revoked[in.tokenID] {
 		return repository.ErrNotFound
 	}
 	m.revoked[in.tokenID] = true

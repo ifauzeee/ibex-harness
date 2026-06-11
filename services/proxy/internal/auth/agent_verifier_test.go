@@ -12,6 +12,13 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+func assertAgentRecord(t *testing.T, got, want *AgentRecord) {
+	t.Helper()
+	if got.ID != want.ID || got.OrgID != want.OrgID || got.Status != want.Status {
+		t.Fatalf("got %+v, want %+v", got, want)
+	}
+}
+
 func runAgentVerifierCase(t *testing.T, tc agentVerifierCase) {
 	t.Helper()
 	const (

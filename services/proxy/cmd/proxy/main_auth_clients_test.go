@@ -7,6 +7,7 @@ import (
 
 	"github.com/Rick1330/ibex-harness/packages/logger"
 	authv1 "github.com/Rick1330/ibex-harness/packages/proto/gen/go/ibex/auth/v1"
+	"github.com/Rick1330/ibex-harness/services/proxy/internal/auth"
 	"github.com/Rick1330/ibex-harness/services/proxy/internal/config"
 	"google.golang.org/grpc"
 )
@@ -24,10 +25,35 @@ func startAuthGRPCForTest(t *testing.T) net.Listener {
 	return lis
 }
 
-func assertAuthClientsPresent(t *testing.T, validator, agentVerifier, client, conn any) {
+func assertAuthClientsPresent(t *testing.T, validator auth.TokenValidator, agentVerifier auth.AgentVerifier, client authv1.AuthServiceClient, conn *grpc.ClientConn) {
 	t.Helper()
-	if validator == nil || agentVerifier == nil || client == nil || conn == nil {
-		t.Fatal("expected auth clients")
+	if validator == nil {
+		t.Fatal("validator nil")
+	}
+	if agentVerifier == nil {
+		t.Fatal("agentVerifier nil")
+	}
+	if client == nil {
+		t.Fatal("client nil")
+	}
+	if conn == nil {
+		t.Fatal("conn nil")
+	}
+}
+
+func assertAuthClientsAbsent(t *testing.T, validator auth.TokenValidator, agentVerifier auth.AgentVerifier, client authv1.AuthServiceClient, conn *grpc.ClientConn) {
+	t.Helper()
+	if validator != nil {
+		t.Fatal("validator should be nil")
+	}
+	if agentVerifier != nil {
+		t.Fatal("agentVerifier should be nil")
+	}
+	if client != nil {
+		t.Fatal("client should be nil")
+	}
+	if conn != nil {
+		t.Fatal("conn should be nil")
 	}
 }
 
@@ -50,7 +76,5 @@ func TestSetupAuthClients_EmptyAddr(t *testing.T) {
 	if err != nil {
 		t.Fatalf("setupAuthClients: %v", err)
 	}
-	if validator != nil || agentVerifier != nil || client != nil || conn != nil {
-		t.Fatal("expected nil auth clients when addr is empty")
-	}
+	assertAuthClientsAbsent(t, validator, agentVerifier, client, conn)
 }

@@ -89,8 +89,14 @@ func TestValidateChatCompletionRequest_aggregatesMultiple(t *testing.T) {
 
 func TestValidateChatCompletionRequest_nilRequest(t *testing.T) {
 	got := ValidateChatCompletionRequest(nil)
-	if len(got) != 1 || got[0].Field != "body" || got[0].Code != fieldCodeRequired {
-		t.Fatalf("got %+v", got)
+	if len(got) != 1 {
+		t.Fatalf("len: %d", len(got))
+	}
+	if got[0].Field != "body" {
+		t.Fatalf("field: %s", got[0].Field)
+	}
+	if got[0].Code != fieldCodeRequired {
+		t.Fatalf("code: %s", got[0].Code)
 	}
 }
 

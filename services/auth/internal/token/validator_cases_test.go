@@ -16,12 +16,17 @@ type validatorCase struct {
 	expect  string
 }
 
-func validatorCases(bearer, hash, agentID, userID string, row repository.TokenRow) []validatorCase {
+type validatorFixture struct {
+	bearer, hash, agentID, userID string
+	row                           repository.TokenRow
+}
+
+func validatorCases(f validatorFixture) []validatorCase {
 	return []validatorCase{
 		{name: "malformed token", token: "not-a-token", lookup: &fakeLookup{}, wantErr: token.ErrUnauthenticated},
-		{name: "not found", token: bearer, lookup: &fakeLookup{err: sql.ErrNoRows}, wantErr: token.ErrUnauthenticated},
-		{name: "wrong hash", token: bearer, lookup: &fakeLookup{row: repository.TokenRow{Hash: "wrong", OrgID: "org"}}, wantErr: token.ErrUnauthenticated},
-		{name: "db error", token: bearer, lookup: &fakeLookup{err: errors.New("db down")}, expect: "db error"},
-		{name: "ok with optional fields", token: bearer, lookup: &fakeLookup{row: row}, expect: "ok"},
+		{name: "not found", token: f.bearer, lookup: &fakeLookup{err: sql.ErrNoRows}, wantErr: token.ErrUnauthenticated},
+		{name: "wrong hash", token: f.bearer, lookup: &fakeLookup{row: repository.TokenRow{Hash: "wrong", OrgID: "org"}}, wantErr: token.ErrUnauthenticated},
+		{name: "db error", token: f.bearer, lookup: &fakeLookup{err: errors.New("db down")}, expect: "db error"},
+		{name: "ok with optional fields", token: f.bearer, lookup: &fakeLookup{row: f.row}, expect: "ok"},
 	}
 }

@@ -37,32 +37,28 @@ func TestParseChatCompletionRequest_unknownFieldsIgnored(t *testing.T) {
 	}
 }
 
-func TestParseChatCompletionRequest_invalidJSON(t *testing.T) {
-	_, err := ParseChatCompletionRequest(strings.NewReader(`{invalid`))
+func assertParseInvalidJSON(t *testing.T, body string) {
+	t.Helper()
+	_, err := ParseChatCompletionRequest(strings.NewReader(body))
 	if !errors.Is(err, ErrInvalidJSON) {
 		t.Fatalf("err: %v", err)
 	}
+}
+
+func TestParseChatCompletionRequest_invalidJSON(t *testing.T) {
+	assertParseInvalidJSON(t, `{invalid`)
 }
 
 func TestParseChatCompletionRequest_rootArray(t *testing.T) {
-	_, err := ParseChatCompletionRequest(strings.NewReader(`[]`))
-	if !errors.Is(err, ErrInvalidJSON) {
-		t.Fatalf("err: %v", err)
-	}
+	assertParseInvalidJSON(t, `[]`)
 }
 
 func TestParseChatCompletionRequest_messagesNotArray(t *testing.T) {
-	_, err := ParseChatCompletionRequest(strings.NewReader(`{"model":"m","messages":"x"}`))
-	if !errors.Is(err, ErrInvalidJSON) {
-		t.Fatalf("err: %v", err)
-	}
+	assertParseInvalidJSON(t, `{"model":"m","messages":"x"}`)
 }
 
 func TestParseChatCompletionRequest_messageNotObject(t *testing.T) {
-	_, err := ParseChatCompletionRequest(strings.NewReader(`{"model":"m","messages":[1]}`))
-	if !errors.Is(err, ErrInvalidJSON) {
-		t.Fatalf("err: %v", err)
-	}
+	assertParseInvalidJSON(t, `{"model":"m","messages":[1]}`)
 }
 
 func TestParseChatCompletionRequest_missingMessagesOK(t *testing.T) {
@@ -76,10 +72,7 @@ func TestParseChatCompletionRequest_missingMessagesOK(t *testing.T) {
 }
 
 func TestParseChatCompletionRequest_trailingDataRejected(t *testing.T) {
-	_, err := ParseChatCompletionRequest(strings.NewReader(`{"model":"m","messages":[]}{}`))
-	if !errors.Is(err, ErrInvalidJSON) {
-		t.Fatalf("err: %v", err)
-	}
+	assertParseInvalidJSON(t, `{"model":"m","messages":[]}{}`)
 }
 
 func TestParseChatCompletionRequest_streamTrue(t *testing.T) {
@@ -94,10 +87,7 @@ func TestParseChatCompletionRequest_streamTrue(t *testing.T) {
 }
 
 func TestParseChatCompletionRequest_messageInvalidJSON(t *testing.T) {
-	_, err := ParseChatCompletionRequest(strings.NewReader(`{"model":"m","messages":[{"role":]}`))
-	if !errors.Is(err, ErrInvalidJSON) {
-		t.Fatalf("err: %v", err)
-	}
+	assertParseInvalidJSON(t, `{"model":"m","messages":[{"role":]}`)
 }
 
 func TestParseChatCompletionRequest_maxTokensPreserved(t *testing.T) {

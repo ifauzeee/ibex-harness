@@ -71,22 +71,48 @@ func runFindActiveCase(t *testing.T, tc findActiveCase) {
 	}
 }
 
-func listTokensPage(t *testing.T, repo *repository.TokensRepository, orgID, cursor string, limit, wantLen int, wantCursor bool) ([]repository.TokenMetadata, string) {
+type listPageQuery struct {
+	orgID      string
+	cursor     string
+	limit      int
+	wantLen    int
+	wantCursor bool
+}
+
+func listTokensPage(t *testing.T, repo *repository.TokensRepository, q listPageQuery) ([]repository.TokenMetadata, string) {
 	t.Helper()
-	rows, next, err := repo.ListTokens(context.Background(), orgID, cursor, limit)
+	rows, next, err := repo.ListTokens(context.Background(), q.orgID, q.cursor, q.limit)
 	if err != nil {
 		t.Fatalf("ListTokens: %v", err)
 	}
-	if len(rows) != wantLen {
-		t.Fatalf("len: got %d want %d", len(rows), wantLen)
+	if len(rows) != q.wantLen {
+		t.Fatalf("len: got %d want %d", len(rows), q.wantLen)
 	}
-	if wantCursor && next == "" {
+	if q.wantCursor && next == "" {
 		t.Fatal("expected next cursor")
 	}
-	if !wantCursor && next != "" {
+	if !q.wantCursor && next != "" {
 		t.Fatalf("unexpected cursor %q", next)
 	}
 	return rows, next
+}
+
+func tokenIDsFromRows(rows []repository.TokenMetadata) map[string]bool {
+	ids := make(map[string]bool, len(rows))
+	for _, row := range rows {
+		ids[row.ID] = true
+	}
+	return ids
+}
+
+func assertTokenIDsPresent(t *testing.T, want []string, rows []repository.TokenMetadata) {
+	t.Helper()
+	got := tokenIDsFromRows(rows)
+	for _, id := range want {
+		if !got[id] {
+			t.Fatalf("missing token id %s", id)
+		}
+	}
 }
 
 func insertNamedToken(t *testing.T, repo *repository.TokensRepository, orgID, name string) string {

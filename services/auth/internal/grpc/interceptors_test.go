@@ -71,8 +71,14 @@ func TestAuthzUnaryInterceptor_validBearer(t *testing.T) {
 	if err != nil {
 		t.Fatalf("interceptor: %v", err)
 	}
-	if gotCaller.OrgID != "org-1" || gotCaller.TokenID != tokenID || gotCaller.UserID != userID {
-		t.Fatalf("caller: %+v", gotCaller)
+	if gotCaller.OrgID != "org-1" {
+		t.Fatalf("org: %s", gotCaller.OrgID)
+	}
+	if gotCaller.TokenID != tokenID {
+		t.Fatalf("token: %s", gotCaller.TokenID)
+	}
+	if gotCaller.UserID != userID {
+		t.Fatalf("user: %s", gotCaller.UserID)
 	}
 }
 

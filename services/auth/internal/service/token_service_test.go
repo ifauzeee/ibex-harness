@@ -12,26 +12,35 @@ import (
 	"github.com/google/uuid"
 )
 
-func runCreateTokenCase(t *testing.T, tc createTokenCase) {
+func assertCreateTokenError(t *testing.T, err, want error) {
 	t.Helper()
-	repo := newMemTokenRepo()
-	svc := testTokenService(repo)
-	result, err := svc.CreateToken(context.Background(), tc.req)
-	if tc.wantErr != nil {
-		if !errors.Is(err, tc.wantErr) {
-			t.Fatalf("CreateToken err: got %v want %v", err, tc.wantErr)
-		}
-		return
+	if !errors.Is(err, want) {
+		t.Fatalf("CreateToken err: got %v want %v", err, want)
 	}
-	if err != nil {
-		t.Fatalf("CreateToken: %v", err)
-	}
+}
+
+func assertCreateTokenOK(t *testing.T, repo *memTokenRepo, result CreateTokenResult) {
+	t.Helper()
 	if result.TokenID == "" || result.Plaintext == "" || result.Prefix == "" {
 		t.Fatalf("incomplete result: %+v", result)
 	}
 	if _, ok := repo.tokens[result.TokenID]; !ok {
 		t.Fatal("token not persisted in repo")
 	}
+}
+
+func runCreateTokenCase(t *testing.T, tc createTokenCase) {
+	t.Helper()
+	repo := newMemTokenRepo()
+	result, err := testTokenService(repo).CreateToken(context.Background(), tc.req)
+	if tc.wantErr != nil {
+		assertCreateTokenError(t, err, tc.wantErr)
+		return
+	}
+	if err != nil {
+		t.Fatalf("CreateToken: %v", err)
+	}
+	assertCreateTokenOK(t, repo, result)
 }
 
 func TestTokenService_CreateToken(t *testing.T) {
@@ -95,8 +104,7 @@ func TestTokenService_ListTokens(t *testing.T) {
 			RevokedAt: sql.NullTime{Time: revokedAt, Valid: true},
 		},
 	}
-	svc := testTokenService(repo)
-	rows, next, err := svc.ListTokens(context.Background(), orgID, "", 10)
+	rows, next, err := testTokenService(repo).ListTokens(context.Background(), orgID, "", 10)
 	if err != nil {
 		t.Fatalf("ListTokens: %v", err)
 	}

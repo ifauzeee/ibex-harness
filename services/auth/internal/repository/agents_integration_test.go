@@ -33,8 +33,14 @@ func TestAgentsRepository_GetByIDAndOrg(t *testing.T) {
 				if rec == nil {
 					t.Fatal("expected agent record")
 				}
-				if rec.ID != s.AgentID || rec.OrgID != s.OrgA || rec.Status != tc.wantStatus {
-					t.Fatalf("record mismatch: %+v", rec)
+				if rec.ID != s.AgentID {
+					t.Fatalf("id: %s", rec.ID)
+				}
+				if rec.OrgID != s.OrgA {
+					t.Fatalf("org: %s", rec.OrgID)
+				}
+				if rec.Status != tc.wantStatus {
+					t.Fatalf("status: %s", rec.Status)
 				}
 			})
 		})

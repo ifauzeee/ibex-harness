@@ -33,8 +33,14 @@ func TestRateLimitSliderConfig(t *testing.T) {
 		},
 	}
 	got := rateLimitSliderConfig(cfg)
-	if got.DefaultRPM != 120 || got.OrgOverrides[orgID] != 30 || got.OrgOverrides[otherOrg] != 45 {
-		t.Fatalf("overrides: %+v", got.OrgOverrides)
+	if got.DefaultRPM != 120 {
+		t.Fatalf("DefaultRPM = %d, want 120", got.DefaultRPM)
+	}
+	if got.OrgOverrides[orgID] != 30 {
+		t.Fatalf("org override = %d, want 30", got.OrgOverrides[orgID])
+	}
+	if got.OrgOverrides[otherOrg] != 45 {
+		t.Fatalf("other org override = %d, want 45", got.OrgOverrides[otherOrg])
 	}
 	if len(got.OrgOverrides) != 2 {
 		t.Fatalf("overrides: %+v", got.OrgOverrides)
