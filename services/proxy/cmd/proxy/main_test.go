@@ -233,31 +233,59 @@ func TestSetupAuthClients_EmptyAddr(t *testing.T) {
 	}
 }
 
-func TestRunWithShutdown_closesOptionalClients(t *testing.T) {
-	mr := miniredis.RunT(t)
-	redisClient, err := ratelimit.ParseRedisURL("redis://" + mr.Addr() + "/0")
-	if err != nil {
-		t.Fatal(err)
-	}
+type shutdownSignalCase struct {
+	name string
+	opts func(t *testing.T) (shutdownOpts, func())
+}
 
-	server := &http.Server{
-		Addr:              "127.0.0.1:0",
-		Handler:           http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) }),
-		ReadHeaderTimeout: 5 * time.Second,
+func shutdownSignalCases(t *testing.T) []shutdownSignalCase {
+	t.Helper()
+	baseServer := func() *http.Server {
+		return &http.Server{
+			Addr:              "127.0.0.1:0",
+			Handler:           http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) }),
+			ReadHeaderTimeout: 5 * time.Second,
+		}
 	}
-
-	sigCh := make(chan os.Signal, 1)
-	runShutdownTest(t, shutdownOpts{
-		cfg: config.Config{
-			Environment:     "development",
-			ShutdownTimeout: 2 * time.Second,
+	baseCfg := config.Config{Environment: "development", ShutdownTimeout: 2 * time.Second}
+	return []shutdownSignalCase{
+		{
+			name: "stops on signal",
+			opts: func(t *testing.T) (shutdownOpts, func()) {
+				sigCh := make(chan os.Signal, 1)
+				return shutdownOpts{
+					cfg: baseCfg, logger: logger.Discard("proxy"),
+					providers: shutdownTestProviders(t), server: baseServer(), signalCh: sigCh,
+				}, func() { sigCh <- syscall.SIGTERM }
+			},
 		},
-		logger:      logger.Discard("proxy"),
-		providers:   shutdownTestProviders(t),
-		server:      server,
-		redisClient: redisClient,
-		signalCh:    sigCh,
-	}, 0, func() { sigCh <- syscall.SIGTERM })
+		{
+			name: "closes optional clients",
+			opts: func(t *testing.T) (shutdownOpts, func()) {
+				mr := miniredis.RunT(t)
+				redisClient, err := ratelimit.ParseRedisURL("redis://" + mr.Addr() + "/0")
+				if err != nil {
+					t.Fatal(err)
+				}
+				sigCh := make(chan os.Signal, 1)
+				return shutdownOpts{
+					cfg: baseCfg, logger: logger.Discard("proxy"),
+					providers: shutdownTestProviders(t), server: baseServer(),
+					redisClient: redisClient, signalCh: sigCh,
+				}, func() { sigCh <- syscall.SIGTERM }
+			},
+		},
+	}
+}
+
+func TestRunWithShutdown_onSignal(t *testing.T) {
+	for _, tc := range shutdownSignalCases(t) {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			opts, trigger := tc.opts(t)
+			runShutdownTest(t, opts, 0, trigger)
+		})
+	}
 }
 
 func proxyBootstrapSmokeEnv(t *testing.T) (sigCh chan os.Signal, httpPort string) {
@@ -306,26 +334,6 @@ func TestRun_StopsOnSignal(t *testing.T) {
 	case <-time.After(5 * time.Second):
 		t.Fatal("timed out waiting for shutdown")
 	}
-}
-
-func TestRunWithShutdown_StopsOnSignal(t *testing.T) {
-	server := &http.Server{
-		Addr:              ":0",
-		Handler:           http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) }),
-		ReadHeaderTimeout: 5 * time.Second,
-	}
-
-	sigCh := make(chan os.Signal, 1)
-	runShutdownTest(t, shutdownOpts{
-		cfg: config.Config{
-			Environment:     "development",
-			ShutdownTimeout: 2 * time.Second,
-		},
-		logger:    logger.Discard("proxy"),
-		providers: shutdownTestProviders(t),
-		server:    server,
-		signalCh:  sigCh,
-	}, 0, func() { sigCh <- syscall.SIGTERM })
 }
 
 func waitForTCP(t *testing.T, addr string) {

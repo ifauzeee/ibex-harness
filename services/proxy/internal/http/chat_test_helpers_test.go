@@ -2,12 +2,11 @@ package http
 
 import (
 	"context"
-	"io"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 
+	"github.com/Rick1330/ibex-harness/infra/testing/httptestx"
 	"github.com/Rick1330/ibex-harness/packages/permissions"
 	"github.com/Rick1330/ibex-harness/packages/ratelimit"
 	"github.com/Rick1330/ibex-harness/services/proxy/internal/auth"
@@ -47,30 +46,14 @@ type chatRequestOpts struct {
 
 func postChat(t *testing.T, handler http.Handler, opts chatRequestOpts) *httptest.ResponseRecorder {
 	t.Helper()
-
-	if opts.method == "" {
-		opts.method = http.MethodPost
+	method := opts.method
+	if method == "" {
+		method = http.MethodPost
 	}
-	var bodyReader *strings.Reader
-	if opts.body != "" {
-		bodyReader = strings.NewReader(opts.body)
-	}
-	body := io.Reader(http.NoBody)
-	if bodyReader != nil {
-		body = bodyReader
-	}
-	req := httptest.NewRequest(opts.method, "/v1/chat/completions", body)
-	if opts.auth {
-		req.Header.Set("Authorization", "Bearer ibex_pat_test")
-	}
-	if opts.contentType != "" {
-		req.Header.Set("Content-Type", opts.contentType)
-	} else if opts.body != "" {
-		req.Header.Set("Content-Type", "application/json")
-	}
-	if opts.agentID != "" {
-		req.Header.Set("X-IBEX-Agent-ID", opts.agentID)
-	}
+	req := httptest.NewRequest(method, "/v1/chat/completions", httptestx.RequestBody(opts.body))
+	httptestx.ApplyChatHeaders(req, httptestx.ChatHeaders{
+		Auth: opts.auth, ContentType: opts.contentType, AgentID: opts.agentID, HasBody: opts.body != "",
+	})
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, req)
 	return rec
