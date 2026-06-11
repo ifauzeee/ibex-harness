@@ -4,8 +4,6 @@ package repository_test
 
 import (
 	"testing"
-
-	"github.com/Rick1330/ibex-harness/infra/testing/repotest"
 )
 
 func TestAgentsRepository_GetByIDAndOrg(t *testing.T) {
@@ -24,8 +22,8 @@ func TestAgentsRepository_GetByIDAndOrg(t *testing.T) {
 	for _, tc := range tests {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-			repotest.WithAgentsScenario(t, tc.status, tc.crossOrg, func(t *testing.T, s repotest.AgentsScenario, lookupOrg string) {
-				rec := s.LookupAgent(t, lookupOrg)
+			withAgentsScenario(t, tc.status, tc.crossOrg, func(t *testing.T, s agentsScenario, lookupOrg string) {
+				rec := s.lookupAgent(t, lookupOrg)
 				if tc.wantNil {
 					if rec != nil {
 						t.Fatalf("expected nil for cross-org lookup, got %+v", rec)

@@ -1,6 +1,6 @@
 //go:build integration
 
-package repotest
+package repository_test
 
 import (
 	"context"
@@ -12,8 +12,7 @@ import (
 	"github.com/google/uuid"
 )
 
-// AgentsScenario holds seeded orgs, user, and agent for repository integration tests.
-type AgentsScenario struct {
+type agentsScenario struct {
 	DB      *sql.DB
 	Repo    *repository.AgentsRepository
 	OrgA    string
@@ -22,8 +21,7 @@ type AgentsScenario struct {
 	AgentID string
 }
 
-// WithAgentsScenario seeds postgres and runs fn with a ready agents repository fixture.
-func WithAgentsScenario(t *testing.T, status string, crossOrg bool, fn func(t *testing.T, s AgentsScenario, lookupOrg string)) {
+func withAgentsScenario(t *testing.T, status string, crossOrg bool, fn func(t *testing.T, s agentsScenario, lookupOrg string)) {
 	t.Helper()
 	dsn, cleanupPG := testutil.SetupPostgres(t)
 	t.Cleanup(cleanupPG)
@@ -43,11 +41,10 @@ func WithAgentsScenario(t *testing.T, status string, crossOrg bool, fn func(t *t
 		lookupOrg = orgB
 	}
 
-	fn(t, AgentsScenario{DB: db, Repo: repo, OrgA: orgA, OrgB: orgB, UserA: userA, AgentID: agentID}, lookupOrg)
+	fn(t, agentsScenario{DB: db, Repo: repo, OrgA: orgA, OrgB: orgB, UserA: userA, AgentID: agentID}, lookupOrg)
 }
 
-// LookupAgent calls GetByIDAndOrg for the scenario agent.
-func (s AgentsScenario) LookupAgent(t *testing.T, lookupOrg string) *repository.AgentRecord {
+func (s agentsScenario) lookupAgent(t *testing.T, lookupOrg string) *repository.AgentRecord {
 	t.Helper()
 	rec, err := s.Repo.GetByIDAndOrg(context.Background(), uuid.MustParse(s.AgentID), uuid.MustParse(lookupOrg))
 	if err != nil {

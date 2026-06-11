@@ -69,7 +69,7 @@ func chatCompletionCases() []chatCompletionCase {
 		},
 		{
 			name: "body too large returns 413", validator: defaultChatValidator(),
-			cfg:        chatTestConfigSmallBody(),
+			cfg: chatTestConfigSmallBody(),
 			req: chatRequestOpts{
 				body:    `{"model":"gpt-4","messages":[{"role":"user","content":"this body is definitely too large"}]}`,
 				auth:    true,
