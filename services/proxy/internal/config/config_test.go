@@ -135,7 +135,8 @@ func TestValidate_acceptsValidConfig(t *testing.T) {
 	}
 }
 
-func TestApplyDefaultsShutdownTimeout(t *testing.T) {
+func TestApplyDefaults(t *testing.T) {
+	t.Parallel()
 	var cfg Config
 	cfg.ApplyDefaults()
 	if cfg.ShutdownTimeout != 30*time.Second {
@@ -144,21 +145,37 @@ func TestApplyDefaultsShutdownTimeout(t *testing.T) {
 }
 
 func TestParseOrgRPMOverrides(t *testing.T) {
+	t.Parallel()
 	orgID := uuid.MustParse("550e8400-e29b-41d4-a716-446655440000")
-	got, err := parseOrgRPMOverrides(orgID.String() + "=1000")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got[orgID] != 1000 {
-		t.Fatalf("rpm: %d", got[orgID])
-	}
-}
 
-func TestParseOrgRPMOverrides_invalid(t *testing.T) {
-	if _, err := parseOrgRPMOverrides("not-a-uuid=60"); err == nil {
-		t.Fatal("expected error")
+	tests := []struct {
+		name    string
+		raw     string
+		wantRPM int
+		wantErr bool
+	}{
+		{name: "valid", raw: orgID.String() + "=1000", wantRPM: 1000},
+		{name: "invalid uuid", raw: "not-a-uuid=60", wantErr: true},
+		{name: "zero rpm", raw: "550e8400-e29b-41d4-a716-446655440000=0", wantErr: true},
 	}
-	if _, err := parseOrgRPMOverrides("550e8400-e29b-41d4-a716-446655440000=0"); err == nil {
-		t.Fatal("expected error for zero rpm")
+
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			got, err := parseOrgRPMOverrides(tc.raw)
+			if tc.wantErr {
+				if err == nil {
+					t.Fatal("expected error")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got[orgID] != tc.wantRPM {
+				t.Fatalf("rpm: %d", got[orgID])
+			}
+		})
 	}
 }

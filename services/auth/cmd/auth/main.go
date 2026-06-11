@@ -162,16 +162,25 @@ func newAuthShutdownCoordinator(opts shutdownOpts) *shutdown.Coordinator {
 func awaitAuthShutdown(errCh, shutdownErrCh <-chan error, log *logger.Logger) int {
 	select {
 	case err := <-errCh:
-		if err != nil {
-			log.ErrorCtx(context.Background(), "server failed", "error", err)
-			return 1
-		}
+		return exitCodeForServerErr(err, log)
 	case err := <-shutdownErrCh:
-		if err != nil {
-			return 1
-		}
-		log.InfoCtx(context.Background(), "service stopped")
+		return exitCodeForShutdownComplete(err, log)
 	}
+}
+
+func exitCodeForServerErr(err error, log *logger.Logger) int {
+	if err != nil {
+		log.ErrorCtx(context.Background(), "server failed", "error", err)
+		return 1
+	}
+	return 0
+}
+
+func exitCodeForShutdownComplete(err error, log *logger.Logger) int {
+	if err != nil {
+		return 1
+	}
+	log.InfoCtx(context.Background(), "service stopped")
 	return 0
 }
 

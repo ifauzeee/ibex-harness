@@ -208,16 +208,28 @@ func sampleTimestamp() *timestamppb.Timestamp {
 	return timestamppb.Now()
 }
 
-func TestAuthMessagesProtoRoundTrip(t *testing.T) {
-	t.Parallel()
-	now := sampleTimestamp()
-	tests := authMessageTestCases(now)
-
-	for _, tc := range tests {
+func runAuthMessageRoundTrips(t *testing.T, cases []authMessageCase) {
+	t.Helper()
+	for _, tc := range cases {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			protoRoundTrip(t, tc.msg)
 		})
 	}
+}
+
+func TestAuthValidateMessagesProtoRoundTrip(t *testing.T) {
+	t.Parallel()
+	runAuthMessageRoundTrips(t, authValidateMessageCases(sampleTimestamp()))
+}
+
+func TestAuthTokenMessagesProtoRoundTrip(t *testing.T) {
+	t.Parallel()
+	runAuthMessageRoundTrips(t, authTokenMessageCases(sampleTimestamp()))
+}
+
+func TestAuthListMessagesProtoRoundTrip(t *testing.T) {
+	t.Parallel()
+	runAuthMessageRoundTrips(t, authListMessageCases(sampleTimestamp()))
 }
