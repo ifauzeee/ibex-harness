@@ -45,17 +45,99 @@ func TestLoadRejectsInvalidOrgRPMOverrides(t *testing.T) {
 	}
 }
 
-func TestValidateRejectsInvalidEnvironment(t *testing.T) {
+func validProxyConfig() Config {
+	cfg := Config{
+		Environment:         "development",
+		ServiceName:         "proxy",
+		Port:                "8080",
+		AuthGRPCAddr:        "127.0.0.1:9091",
+		AuthValidateTimeout: defaultAuthValidateTimeout,
+		MaxRequestBodyBytes: defaultMaxRequestBodyBytes,
+		RequestIDHeader:     defaultRequestIDHeader,
+		TraceIDHeader:       defaultTraceIDHeader,
+	}
+	cfg.ApplyDefaults()
+	return cfg
+}
+
+func TestValidate_rejectsInvalidConfig(t *testing.T) {
 	t.Parallel()
 
-	cfg := Config{
-		Environment: "prod",
-		ServiceName: "proxy",
-		Port:        "8080",
+	orgID := uuid.MustParse("550e8400-e29b-41d4-a716-446655440000")
+
+	tests := []struct {
+		name string
+		mutate func(*Config)
+	}{
+		{
+			name: "invalid environment",
+			mutate: func(c *Config) {
+				c.Environment = "prod"
+				c.ServiceName = "proxy"
+				c.Port = "8080"
+			},
+		},
+		{
+			name: "invalid port",
+			mutate: func(c *Config) { c.Port = "not-a-port" },
+		},
+		{
+			name: "zero port",
+			mutate: func(c *Config) { c.Port = "0" },
+		},
+		{
+			name: "port too large",
+			mutate: func(c *Config) { c.Port = "70000" },
+		},
+		{
+			name: "empty service name",
+			mutate: func(c *Config) { c.ServiceName = "  " },
+		},
+		{
+			name: "invalid auth grpc addr",
+			mutate: func(c *Config) { c.AuthGRPCAddr = "not-host-port" },
+		},
+		{
+			name: "zero rate limit rpm",
+			mutate: func(c *Config) { c.RateLimit.DefaultRPM = 0 },
+		},
+		{
+			name: "auth grpc required outside development",
+			mutate: func(c *Config) {
+				c.Environment = "staging"
+				c.AuthGRPCAddr = ""
+			},
+		},
+		{
+			name: "empty trace id header",
+			mutate: func(c *Config) { c.TraceIDHeader = "" },
+		},
+		{
+			name: "zero max body bytes",
+			mutate: func(c *Config) { c.MaxRequestBodyBytes = 0 },
+		},
+		{
+			name: "empty request id header",
+			mutate: func(c *Config) { c.RequestIDHeader = "" },
+		},
+		{
+			name: "org override zero rpm",
+			mutate: func(c *Config) {
+				c.RateLimit.OrgOverrides = map[uuid.UUID]int{orgID: 0}
+			},
+		},
 	}
 
-	if err := cfg.Validate(); err == nil {
-		t.Fatal("expected invalid environment error")
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			cfg := validProxyConfig()
+			tc.mutate(&cfg)
+			if err := cfg.Validate(); err == nil {
+				t.Fatalf("expected validation error for %s", tc.name)
+			}
+		})
 	}
 }
 
@@ -130,129 +212,6 @@ func TestParseOrgRPMOverrides(t *testing.T) {
 	}
 }
 
-func TestValidateRejectsInvalidPort(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name string
-		port string
-	}{
-		{name: "non-numeric", port: "not-a-port"},
-		{name: "zero", port: "0"},
-		{name: "too large", port: "70000"},
-	}
-	for _, tc := range tests {
-		tc := tc
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-			cfg := Config{
-				Environment:         "development",
-				ServiceName:         "proxy",
-				Port:                tc.port,
-				MaxRequestBodyBytes: defaultMaxRequestBodyBytes,
-				RequestIDHeader:     defaultRequestIDHeader,
-				TraceIDHeader:       defaultTraceIDHeader,
-			}
-			cfg.ApplyDefaults()
-			cfg.Port = tc.port
-			if err := cfg.Validate(); err == nil {
-				t.Fatal("expected invalid port error")
-			}
-		})
-	}
-}
-
-func TestValidateRejectsEmptyServiceName(t *testing.T) {
-	t.Parallel()
-
-	cfg := Config{
-		Environment:         "development",
-		ServiceName:         "  ",
-		Port:                "8080",
-		MaxRequestBodyBytes: defaultMaxRequestBodyBytes,
-		RequestIDHeader:     defaultRequestIDHeader,
-		TraceIDHeader:       defaultTraceIDHeader,
-	}
-	cfg.ApplyDefaults()
-	cfg.ServiceName = "  "
-	if err := cfg.Validate(); err == nil {
-		t.Fatal("expected empty service name error")
-	}
-}
-
-func TestValidateRejectsInvalidAuthGRPCAddr(t *testing.T) {
-	t.Parallel()
-
-	cfg := Config{
-		Environment:         "development",
-		ServiceName:         "proxy",
-		Port:                "8080",
-		AuthGRPCAddr:        "not-host-port",
-		AuthValidateTimeout: defaultAuthValidateTimeout,
-		MaxRequestBodyBytes: defaultMaxRequestBodyBytes,
-		RequestIDHeader:     defaultRequestIDHeader,
-		TraceIDHeader:       defaultTraceIDHeader,
-	}
-	cfg.ApplyDefaults()
-	cfg.AuthGRPCAddr = "not-host-port"
-	if err := cfg.Validate(); err == nil {
-		t.Fatal("expected invalid auth grpc addr error")
-	}
-}
-
-func TestValidateRejectsZeroRateLimitRPM(t *testing.T) {
-	cfg := Config{
-		Environment:         "development",
-		ServiceName:         "proxy",
-		Port:                "8080",
-		MaxRequestBodyBytes: defaultMaxRequestBodyBytes,
-		RequestIDHeader:     defaultRequestIDHeader,
-		TraceIDHeader:       defaultTraceIDHeader,
-	}
-	cfg.ApplyDefaults()
-	cfg.RateLimit.DefaultRPM = 0
-	if err := cfg.Validate(); err == nil {
-		t.Fatal("expected zero rpm error")
-	}
-}
-
-func TestValidateRejectsAuthGRPCRequiredOutsideDevelopment(t *testing.T) {
-	t.Parallel()
-
-	cfg := Config{
-		Environment:         "staging",
-		ServiceName:         "proxy",
-		Port:                "8080",
-		AuthGRPCAddr:        "",
-		MaxRequestBodyBytes: defaultMaxRequestBodyBytes,
-		RequestIDHeader:     defaultRequestIDHeader,
-		TraceIDHeader:       defaultTraceIDHeader,
-	}
-	cfg.ApplyDefaults()
-	cfg.AuthGRPCAddr = ""
-	if err := cfg.Validate(); err == nil {
-		t.Fatal("expected auth grpc addr required in staging")
-	}
-}
-
-func TestValidateRejectsEmptyTraceIDHeader(t *testing.T) {
-	t.Parallel()
-
-	cfg := Config{
-		Environment:         "development",
-		ServiceName:         "proxy",
-		Port:                "8080",
-		MaxRequestBodyBytes: defaultMaxRequestBodyBytes,
-		RequestIDHeader:     defaultRequestIDHeader,
-		TraceIDHeader:       "",
-	}
-	cfg.ApplyDefaults()
-	cfg.TraceIDHeader = ""
-	if err := cfg.Validate(); err == nil {
-		t.Fatal("expected empty trace header error")
-	}
-}
-
 func TestParseOrgRPMOverrides_invalid(t *testing.T) {
 	if _, err := parseOrgRPMOverrides("not-a-uuid=60"); err == nil {
 		t.Fatal("expected error")
@@ -262,61 +221,3 @@ func TestParseOrgRPMOverrides_invalid(t *testing.T) {
 	}
 }
 
-func TestValidateRejectsZeroMaxBodyBytes(t *testing.T) {
-	t.Parallel()
-
-	cfg := Config{
-		Environment:         "development",
-		ServiceName:         "proxy",
-		Port:                "8080",
-		MaxRequestBodyBytes: 0,
-		RequestIDHeader:     defaultRequestIDHeader,
-		TraceIDHeader:       defaultTraceIDHeader,
-	}
-	cfg.ApplyDefaults()
-	cfg.MaxRequestBodyBytes = 0
-	if err := cfg.Validate(); err == nil {
-		t.Fatal("expected body limit error")
-	}
-}
-
-func TestValidateRejectsEmptyRequestIDHeader(t *testing.T) {
-	t.Parallel()
-
-	cfg := Config{
-		Environment:         "development",
-		ServiceName:         "proxy",
-		Port:                "8080",
-		MaxRequestBodyBytes: defaultMaxRequestBodyBytes,
-		RequestIDHeader:     "",
-		TraceIDHeader:       defaultTraceIDHeader,
-	}
-	cfg.ApplyDefaults()
-	cfg.RequestIDHeader = ""
-	if err := cfg.Validate(); err == nil {
-		t.Fatal("expected empty request id header error")
-	}
-}
-
-func TestValidateRejectsOrgOverrideZeroRPM(t *testing.T) {
-	t.Parallel()
-
-	orgID := uuid.MustParse("550e8400-e29b-41d4-a716-446655440000")
-	cfg := Config{
-		Environment:         "development",
-		ServiceName:         "proxy",
-		Port:                "8080",
-		MaxRequestBodyBytes: defaultMaxRequestBodyBytes,
-		RequestIDHeader:     defaultRequestIDHeader,
-		TraceIDHeader:       defaultTraceIDHeader,
-		RateLimit: RateLimitConfig{
-			DefaultRPM:   defaultRateLimitRPM,
-			OrgOverrides: map[uuid.UUID]int{orgID: 0},
-		},
-	}
-	cfg.ApplyDefaults()
-	cfg.RateLimit.OrgOverrides[orgID] = 0
-	if err := cfg.Validate(); err == nil {
-		t.Fatal("expected org override rpm error")
-	}
-}

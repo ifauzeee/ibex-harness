@@ -166,13 +166,35 @@ func TestRun_InvalidOTELSampleRatioReturns1(t *testing.T) {
 	}
 }
 
-func TestRunWithShutdown_serverFailureReturns1(t *testing.T) {
-	log := logger.Discard("proxy")
+func shutdownTestProviders(t *testing.T) *telemetry.Providers {
+	t.Helper()
 	providers, err := telemetry.Init(context.Background(), telemetry.Config{ServiceName: "proxy"})
 	if err != nil {
 		t.Fatal(err)
 	}
+	return providers
+}
 
+func runShutdownTest(t *testing.T, opts shutdownOpts, wantCode int, trigger func()) int {
+	t.Helper()
+	done := make(chan int, 1)
+	go func() { done <- runWithShutdown(opts) }()
+	if trigger != nil {
+		trigger()
+	}
+	select {
+	case code := <-done:
+		if code != wantCode {
+			t.Fatalf("runWithShutdown() = %d, want %d", code, wantCode)
+		}
+		return code
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for shutdown")
+		return -1
+	}
+}
+
+func TestRunWithShutdown_serverFailureReturns1(t *testing.T) {
 	badPort, _ := strconv.Atoi("99999")
 	server := &http.Server{
 		Addr:              net.JoinHostPort("127.0.0.1", strconv.Itoa(badPort)),
@@ -180,27 +202,15 @@ func TestRunWithShutdown_serverFailureReturns1(t *testing.T) {
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
-	done := make(chan int, 1)
-	go func() {
-		done <- runWithShutdown(shutdownOpts{
-			cfg: config.Config{
-				Environment:     "development",
-				ShutdownTimeout: 2 * time.Second,
-			},
-			logger:    log,
-			providers: providers,
-			server:    server,
-		})
-	}()
-
-	select {
-	case code := <-done:
-		if code != 1 {
-			t.Fatalf("runWithShutdown() = %d, want 1", code)
-		}
-	case <-time.After(5 * time.Second):
-		t.Fatal("timed out waiting for server failure")
-	}
+	runShutdownTest(t, shutdownOpts{
+		cfg: config.Config{
+			Environment:     "development",
+			ShutdownTimeout: 2 * time.Second,
+		},
+		logger:    logger.Discard("proxy"),
+		providers: shutdownTestProviders(t),
+		server:    server,
+	}, 1, nil)
 }
 
 func TestRun_InvalidRedisURLReturns1(t *testing.T) {
@@ -224,12 +234,6 @@ func TestSetupAuthClients_EmptyAddr(t *testing.T) {
 }
 
 func TestRunWithShutdown_closesOptionalClients(t *testing.T) {
-	log := logger.Discard("proxy")
-	providers, err := telemetry.Init(context.Background(), telemetry.Config{ServiceName: "proxy"})
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	mr := miniredis.RunT(t)
 	redisClient, err := ratelimit.ParseRedisURL("redis://" + mr.Addr() + "/0")
 	if err != nil {
@@ -243,31 +247,17 @@ func TestRunWithShutdown_closesOptionalClients(t *testing.T) {
 	}
 
 	sigCh := make(chan os.Signal, 1)
-	done := make(chan int, 1)
-	go func() {
-		done <- runWithShutdown(shutdownOpts{
-			cfg: config.Config{
-				Environment:     "development",
-				ShutdownTimeout: 2 * time.Second,
-			},
-			logger:      log,
-			providers:   providers,
-			server:      server,
-			redisClient: redisClient,
-			signalCh:    sigCh,
-		})
-	}()
-
-	sigCh <- syscall.SIGTERM
-
-	select {
-	case code := <-done:
-		if code != 0 {
-			t.Fatalf("runWithShutdown() = %d, want 0", code)
-		}
-	case <-time.After(5 * time.Second):
-		t.Fatal("timed out waiting for shutdown")
-	}
+	runShutdownTest(t, shutdownOpts{
+		cfg: config.Config{
+			Environment:     "development",
+			ShutdownTimeout: 2 * time.Second,
+		},
+		logger:      logger.Discard("proxy"),
+		providers:   shutdownTestProviders(t),
+		server:      server,
+		redisClient: redisClient,
+		signalCh:    sigCh,
+	}, 0, func() { sigCh <- syscall.SIGTERM })
 }
 
 func TestRun_StopsOnSignal(t *testing.T) {
@@ -314,12 +304,6 @@ func TestRun_StopsOnSignal(t *testing.T) {
 }
 
 func TestRunWithShutdown_StopsOnSignal(t *testing.T) {
-	log := logger.Discard("proxy")
-	providers, err := telemetry.Init(context.Background(), telemetry.Config{ServiceName: "proxy"})
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	server := &http.Server{
 		Addr:              ":0",
 		Handler:           http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) }),
@@ -327,30 +311,16 @@ func TestRunWithShutdown_StopsOnSignal(t *testing.T) {
 	}
 
 	sigCh := make(chan os.Signal, 1)
-	done := make(chan int, 1)
-	go func() {
-		done <- runWithShutdown(shutdownOpts{
-			cfg: config.Config{
-				Environment:     "development",
-				ShutdownTimeout: 2 * time.Second,
-			},
-			logger:    log,
-			providers: providers,
-			server:    server,
-			signalCh:  sigCh,
-		})
-	}()
-
-	sigCh <- syscall.SIGTERM
-
-	select {
-	case code := <-done:
-		if code != 0 {
-			t.Fatalf("runWithShutdown() = %d, want 0", code)
-		}
-	case <-time.After(5 * time.Second):
-		t.Fatal("timed out waiting for shutdown")
-	}
+	runShutdownTest(t, shutdownOpts{
+		cfg: config.Config{
+			Environment:     "development",
+			ShutdownTimeout: 2 * time.Second,
+		},
+		logger:    logger.Discard("proxy"),
+		providers: shutdownTestProviders(t),
+		server:    server,
+		signalCh:  sigCh,
+	}, 0, func() { sigCh <- syscall.SIGTERM })
 }
 
 func waitForTCP(t *testing.T, addr string) {

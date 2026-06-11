@@ -26,6 +26,16 @@ func (m *mockLimiter) Check(_ context.Context, _, _ uuid.UUID) (ratelimit.Result
 	return m.result, m.err
 }
 
+func assertRateLimitHeaders(t *testing.T, rec *httptest.ResponseRecorder, limit, remaining string) {
+	t.Helper()
+	if got := rec.Header().Get("X-RateLimit-Limit"); got != limit {
+		t.Fatalf("limit header: got %q want %q", got, limit)
+	}
+	if got := rec.Header().Get("X-RateLimit-Remaining"); got != remaining {
+		t.Fatalf("remaining header: got %q want %q", got, remaining)
+	}
+}
+
 func TestRateLimitMiddleware_allowed(t *testing.T) {
 	t.Parallel()
 
@@ -51,12 +61,7 @@ func TestRateLimitMiddleware_allowed(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status: %d body=%s", rec.Code, rec.Body.String())
 	}
-	if rec.Header().Get("X-RateLimit-Limit") != "60" {
-		t.Fatalf("limit header: %q", rec.Header().Get("X-RateLimit-Limit"))
-	}
-	if rec.Header().Get("X-RateLimit-Remaining") != "59" {
-		t.Fatalf("remaining header: %q", rec.Header().Get("X-RateLimit-Remaining"))
-	}
+	assertRateLimitHeaders(t, rec, "60", "59")
 }
 
 func TestRateLimitMiddleware_denied(t *testing.T) {
@@ -89,9 +94,7 @@ func TestRateLimitMiddleware_denied(t *testing.T) {
 	if rec.Header().Get("Retry-After") == "" {
 		t.Fatal("missing Retry-After")
 	}
-	if rec.Header().Get("X-RateLimit-Remaining") != "0" {
-		t.Fatalf("remaining: %q", rec.Header().Get("X-RateLimit-Remaining"))
-	}
+	assertRateLimitHeaders(t, rec, "60", "0")
 
 	var body struct {
 		Error struct {

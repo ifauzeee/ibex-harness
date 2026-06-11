@@ -6,17 +6,54 @@ import (
 	"time"
 )
 
-func TestValidateRejectsInvalidPort(t *testing.T) {
+func validAuthConfig() Config {
+	return Config{
+		Environment:     "development",
+		ServiceName:     "auth",
+		Port:            "8081",
+		GRPCPort:        "9091",
+		PostgresDSN:     "postgres://ibex:ibex@localhost:5432/ibex?sslmode=disable",
+		ShutdownTimeout: 30 * time.Second,
+	}
+}
+
+func TestValidate_rejectsInvalidConfig(t *testing.T) {
 	t.Parallel()
 
-	cfg := Config{
-		Environment: "development",
-		ServiceName: "auth",
-		Port:        "70000",
+	tests := []struct {
+		name   string
+		mutate func(*Config)
+	}{
+		{
+			name: "invalid port",
+			mutate: func(c *Config) { c.Port = "70000" },
+		},
+		{
+			name: "invalid environment",
+			mutate: func(c *Config) {
+				c.Environment = "prod"
+			},
+		},
+		{
+			name: "missing postgres dsn",
+			mutate: func(c *Config) { c.PostgresDSN = "" },
+		},
+		{
+			name: "empty service name",
+			mutate: func(c *Config) { c.ServiceName = "" },
+		},
 	}
 
-	if err := cfg.Validate(); err == nil {
-		t.Fatal("expected invalid port error")
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			cfg := validAuthConfig()
+			tc.mutate(&cfg)
+			if err := cfg.Validate(); err == nil {
+				t.Fatalf("expected validation error for %s", tc.name)
+			}
+		})
 	}
 }
 
@@ -25,50 +62,6 @@ func TestLoadRejectsNonPositiveShutdownTimeout(t *testing.T) {
 	t.Setenv("IBEX_SHUTDOWN_TIMEOUT", "0s")
 	if _, err := Load(); err == nil {
 		t.Fatal("expected error for zero shutdown timeout")
-	}
-}
-
-func TestValidateRejectsInvalidEnvironment(t *testing.T) {
-	t.Parallel()
-
-	cfg := Config{
-		Environment: "prod",
-		ServiceName: "auth",
-		Port:        "8081",
-		GRPCPort:    "9091",
-		PostgresDSN: "postgres://ibex:ibex@localhost:5432/ibex?sslmode=disable",
-	}
-	if err := cfg.Validate(); err == nil {
-		t.Fatal("expected invalid environment error")
-	}
-}
-
-func TestValidateRejectsMissingPostgresDSN(t *testing.T) {
-	t.Parallel()
-
-	cfg := Config{
-		Environment: "development",
-		ServiceName: "auth",
-		Port:        "8081",
-		GRPCPort:    "9091",
-	}
-	if err := cfg.Validate(); err == nil {
-		t.Fatal("expected missing postgres dsn error")
-	}
-}
-
-func TestValidateRejectsEmptyServiceName(t *testing.T) {
-	t.Parallel()
-
-	cfg := Config{
-		Environment: "development",
-		ServiceName: "",
-		Port:        "8081",
-		GRPCPort:    "9091",
-		PostgresDSN: "postgres://ibex:ibex@localhost:5432/ibex?sslmode=disable",
-	}
-	if err := cfg.Validate(); err == nil {
-		t.Fatal("expected empty service name error")
 	}
 }
 
