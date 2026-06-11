@@ -15,38 +15,31 @@ import (
 	"github.com/google/uuid"
 )
 
+func runParseAgentIDCase(t *testing.T, tc parseAgentIDCase) {
+	t.Helper()
+	h := http.Header{}
+	if tc.header != "" {
+		h.Set(validation.HeaderAgentID, tc.header)
+	}
+	got := parseAgentIDHeader(h)
+	if tc.wantNil {
+		if got != uuid.Nil {
+			t.Fatalf("got %v want Nil", got)
+		}
+		return
+	}
+	if got.String() != tc.wantID {
+		t.Fatalf("got %s want %s", got, tc.wantID)
+	}
+}
+
 func TestParseAgentIDHeader(t *testing.T) {
 	t.Parallel()
-
-	tests := []struct {
-		name    string
-		header  string
-		wantNil bool
-		wantID  string
-	}{
-		{name: "empty", header: "", wantNil: true},
-		{name: "whitespace", header: "  ", wantNil: true},
-		{name: "invalid", header: "not-a-uuid", wantNil: true},
-		{name: "valid", header: agentTestAgentID(), wantID: agentTestAgentID()},
-	}
-	for _, tc := range tests {
+	for _, tc := range parseAgentIDCases() {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			h := http.Header{}
-			if tc.header != "" {
-				h.Set(validation.HeaderAgentID, tc.header)
-			}
-			got := parseAgentIDHeader(h)
-			if tc.wantNil {
-				if got != uuid.Nil {
-					t.Fatalf("got %v want Nil", got)
-				}
-				return
-			}
-			if got.String() != tc.wantID {
-				t.Fatalf("got %s want %s", got, tc.wantID)
-			}
+			runParseAgentIDCase(t, tc)
 		})
 	}
 }

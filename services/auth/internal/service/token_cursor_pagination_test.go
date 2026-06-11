@@ -22,6 +22,13 @@ func sortTokenRows(rows []repository.TokenMetadata) {
 	})
 }
 
+func tokenRowBeforeCursor(row repository.TokenMetadata, cursorTS time.Time, cursorID string) bool {
+	if row.CreatedAt.Before(cursorTS) {
+		return true
+	}
+	return row.CreatedAt.Equal(cursorTS) && row.ID < cursorID
+}
+
 func filterTokensAfterCursor(rows []repository.TokenMetadata, cursor string) ([]repository.TokenMetadata, error) {
 	if cursor == "" {
 		return rows, nil
@@ -32,7 +39,7 @@ func filterTokensAfterCursor(rows []repository.TokenMetadata, cursor string) ([]
 	}
 	filtered := rows[:0]
 	for _, row := range rows {
-		if row.CreatedAt.Before(cursorTS) || (row.CreatedAt.Equal(cursorTS) && row.ID < cursorID) {
+		if tokenRowBeforeCursor(row, cursorTS, cursorID) {
 			filtered = append(filtered, row)
 		}
 	}
