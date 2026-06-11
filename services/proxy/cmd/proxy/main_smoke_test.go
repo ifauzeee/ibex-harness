@@ -7,23 +7,14 @@ import (
 	"testing"
 	"time"
 
-	authv1 "github.com/Rick1330/ibex-harness/packages/proto/gen/go/ibex/auth/v1"
+	"github.com/Rick1330/ibex-harness/infra/testing/grpctest"
 	"github.com/alicebob/miniredis/v2"
-	"google.golang.org/grpc"
 )
 
 func proxyBootstrapSmokeEnv(t *testing.T) (sigCh chan os.Signal, httpPort string) {
 	t.Helper()
 	mr := miniredis.RunT(t)
-	lis, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	// nosemgrep: go.grpc.security.grpc-server-insecure-connection.grpc-server-insecure-connection
-	grpcSrv := grpc.NewServer()
-	authv1.RegisterAuthServiceServer(grpcSrv, authv1.UnimplementedAuthServiceServer{})
-	go func() { _ = grpcSrv.Serve(lis) }()
-	t.Cleanup(func() { grpcSrv.Stop(); _ = lis.Close() })
+	lis := grpctest.StartUnimplementedAuthServer(t)
 
 	httpLis, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {

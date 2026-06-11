@@ -1,30 +1,16 @@
 package main
 
 import (
-	"net"
 	"testing"
 	"time"
 
+	"github.com/Rick1330/ibex-harness/infra/testing/grpctest"
 	"github.com/Rick1330/ibex-harness/packages/logger"
 	authv1 "github.com/Rick1330/ibex-harness/packages/proto/gen/go/ibex/auth/v1"
 	"github.com/Rick1330/ibex-harness/services/proxy/internal/auth"
 	"github.com/Rick1330/ibex-harness/services/proxy/internal/config"
 	"google.golang.org/grpc"
 )
-
-func startAuthGRPCForTest(t *testing.T) net.Listener {
-	t.Helper()
-	lis, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	// nosemgrep: go.grpc.security.grpc-server-insecure-connection.grpc-server-insecure-connection
-	grpcSrv := grpc.NewServer()
-	authv1.RegisterAuthServiceServer(grpcSrv, authv1.UnimplementedAuthServiceServer{})
-	go func() { _ = grpcSrv.Serve(lis) }()
-	t.Cleanup(func() { grpcSrv.Stop() })
-	return lis
-}
 
 type authClientBundle struct {
 	validator     auth.TokenValidator
@@ -66,7 +52,7 @@ func assertAuthClientsAbsent(t *testing.T, b authClientBundle) {
 }
 
 func TestSetupAuthClients_WithGRPCServer(t *testing.T) {
-	lis := startAuthGRPCForTest(t)
+	lis := grpctest.StartUnimplementedAuthServer(t)
 	log := logger.Discard("proxy")
 	validator, agentVerifier, client, conn, err := setupAuthClients(config.Config{
 		AuthGRPCAddr: lis.Addr().String(), AuthValidateTimeout: time.Second,
