@@ -174,6 +174,65 @@ func TestRunWithShutdown_StopsOnSignal(t *testing.T) {
 	}
 }
 
+func TestConfigurePostgresPool(t *testing.T) {
+	t.Parallel()
+
+	db, err := sql.Open("postgres", "postgres://127.0.0.1:5432/test?sslmode=disable")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+
+	configurePostgresPool(db)
+	if db.Stats().MaxOpenConnections != 10 {
+		t.Fatalf("max open: %d", db.Stats().MaxOpenConnections)
+	}
+}
+
+func TestRun_StopsOnSignal(t *testing.T) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, portStr, err := net.SplitHostPort(ln.Addr().String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = ln.Close()
+
+	grpcLis, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, grpcPortStr, err := net.SplitHostPort(grpcLis.Addr().String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = grpcLis.Close()
+
+	t.Setenv("IBEX_ENV", "development")
+	t.Setenv("POSTGRES_DSN", "postgres://ibex:ibex@127.0.0.1:5432/ibex?sslmode=disable")
+	t.Setenv("IBEX_PORT", portStr)
+	t.Setenv("IBEX_GRPC_PORT", grpcPortStr)
+
+	sigCh := make(chan os.Signal, 1)
+	done := make(chan int, 1)
+	go func() { done <- runBootstrap(nil, sigCh) }()
+
+	waitForTCP(t, net.JoinHostPort("127.0.0.1", portStr))
+	waitForTCP(t, net.JoinHostPort("127.0.0.1", grpcPortStr))
+	sigCh <- syscall.SIGTERM
+
+	select {
+	case code := <-done:
+		if code != 0 {
+			t.Fatalf("runBootstrap() = %d, want 0", code)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for shutdown")
+	}
+}
+
 func TestRun_InvalidOTELSampleRatioReturns1(t *testing.T) {
 	t.Setenv("IBEX_ENV", "development")
 	t.Setenv("POSTGRES_DSN", "postgres://ibex:ibex@127.0.0.1:5432/ibex?sslmode=disable")

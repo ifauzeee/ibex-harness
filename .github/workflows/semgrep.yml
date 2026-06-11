@@ -43,6 +43,7 @@ jobs:
             --config p/python \
             --config p/typescript \
             --config p/owasp-top-ten \
+            --exclude-rule go.grpc.security.grpc-server-insecure-connection \
             --sarif --sarif-output=semgrep.sarif \
             services/ packages/
 

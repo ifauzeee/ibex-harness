@@ -30,7 +30,11 @@ func main() {
 	os.Exit(run(os.Args[1:]))
 }
 
-func run(_ []string) int {
+func run(args []string) int {
+	return runBootstrap(args, nil)
+}
+
+func runBootstrap(_ []string, signalCh chan os.Signal) int {
 	cfg, err := config.Load()
 	if err != nil {
 		slog.New(slog.NewJSONHandler(os.Stderr, nil)).Error("invalid configuration", "error", err)
@@ -48,9 +52,7 @@ func run(_ []string) int {
 		log.ErrorCtx(context.Background(), "postgres open failed", "error", err)
 		return 1
 	}
-	db.SetMaxOpenConns(10)
-	db.SetMaxIdleConns(5)
-	db.SetConnMaxLifetime(30 * time.Minute)
+	configurePostgresPool(db)
 
 	reg := ibexmetrics.NewAuth(ibexmetrics.AuthConfig{ServiceName: cfg.ServiceName, DB: db})
 	repo := repository.NewTokensRepository(db, reg)
@@ -93,8 +95,14 @@ func run(_ []string) int {
 
 	return runWithShutdown(shutdownOpts{
 		cfg: cfg, logger: log, providers: providers, grpcSrv: grpcSrv, grpcLis: grpcLis,
-		httpServer: httpServer, db: db,
+		httpServer: httpServer, db: db, signalCh: signalCh,
 	})
+}
+
+func configurePostgresPool(db *sql.DB) {
+	db.SetMaxOpenConns(10)
+	db.SetMaxIdleConns(5)
+	db.SetConnMaxLifetime(30 * time.Minute)
 }
 
 type shutdownOpts struct {

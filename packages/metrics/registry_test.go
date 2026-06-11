@@ -148,6 +148,12 @@ func seedAuthSamples(reg *AuthRegistry) {
 	})
 }
 
+func TestNopQueryObserver_ObserveDBQuery(t *testing.T) {
+	t.Parallel()
+	var obs NopQueryObserver
+	obs.ObserveDBQuery(DBQueryObservation{Operation: DBOpFindTokenByPrefix, Seconds: 0.01})
+}
+
 func assertRequiredMetrics(t *testing.T, gatherer prometheus.Gatherer, required []string) {
 	t.Helper()
 	names := gatherMetricNames(t, gatherer)

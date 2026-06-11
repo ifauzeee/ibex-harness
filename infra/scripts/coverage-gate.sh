@@ -21,6 +21,6 @@ FILTERED="${PROFILE%.out}-handwritten.out"
 bash "$ROOT/infra/scripts/coverage-filter.sh" "$PROFILE" "$FILTERED"
 
 PCT=$(go tool cover -func="$FILTERED" | awk '/^total:/ { gsub(/%/,"",$3); print $3 }')
-echo "hand-written coverage: ${PCT}% (minimum ${MIN}%, excludes packages/proto/gen/go)"
+echo "hand-written coverage: ${PCT}% (minimum ${MIN}%, excludes packages/proto/gen/go and infra/)"
 
 awk -v pct="$PCT" -v min="$MIN" 'BEGIN { exit (pct + 0 >= min + 0) ? 0 : 1 }'

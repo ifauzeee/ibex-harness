@@ -184,6 +184,42 @@ func TestValidateRejectsZeroRateLimitRPM(t *testing.T) {
 	}
 }
 
+func TestValidateRejectsAuthGRPCRequiredOutsideDevelopment(t *testing.T) {
+	t.Parallel()
+
+	cfg := Config{
+		Environment:         "staging",
+		ServiceName:         "proxy",
+		Port:                "8080",
+		AuthGRPCAddr:        "",
+		MaxRequestBodyBytes: defaultMaxRequestBodyBytes,
+		RequestIDHeader:     defaultRequestIDHeader,
+		TraceIDHeader:       defaultTraceIDHeader,
+	}
+	cfg.ApplyDefaults()
+	cfg.AuthGRPCAddr = ""
+	if err := cfg.Validate(); err == nil {
+		t.Fatal("expected auth grpc addr required in staging")
+	}
+}
+
+func TestValidateRejectsEmptyTraceIDHeader(t *testing.T) {
+	t.Parallel()
+
+	cfg := Config{
+		Environment:         "development",
+		ServiceName:         "proxy",
+		Port:                "8080",
+		MaxRequestBodyBytes: defaultMaxRequestBodyBytes,
+		RequestIDHeader:     defaultRequestIDHeader,
+		TraceIDHeader:       "",
+	}
+	cfg.ApplyDefaults()
+	if err := cfg.Validate(); err == nil {
+		t.Fatal("expected empty trace header error")
+	}
+}
+
 func TestParseOrgRPMOverrides_invalid(t *testing.T) {
 	if _, err := parseOrgRPMOverrides("not-a-uuid=60"); err == nil {
 		t.Fatal("expected error")

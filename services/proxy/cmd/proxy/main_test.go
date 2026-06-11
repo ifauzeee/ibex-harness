@@ -262,6 +262,59 @@ func TestRunWithShutdown_closesOptionalClients(t *testing.T) {
 	}
 }
 
+func TestRun_StopsOnSignal(t *testing.T) {
+	mr := miniredis.RunT(t)
+	lis, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	grpcSrv := grpc.NewServer() // nosemgrep: go.grpc.security.grpc-server-insecure-connection
+	authv1.RegisterAuthServiceServer(grpcSrv, authv1.UnimplementedAuthServiceServer{})
+	go func() { _ = grpcSrv.Serve(lis) }()
+	t.Cleanup(func() { grpcSrv.Stop(); _ = lis.Close() })
+
+	httpLis, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, portStr, err := net.SplitHostPort(httpLis.Addr().String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = httpLis.Close()
+
+	t.Setenv("IBEX_ENV", "development")
+	t.Setenv("REDIS_URL", "redis://"+mr.Addr()+"/0")
+	t.Setenv("IBEX_AUTH_GRPC_ADDR", lis.Addr().String())
+	t.Setenv("IBEX_PORT", portStr)
+
+	sigCh := make(chan os.Signal, 1)
+	done := make(chan int, 1)
+	go func() { done <- runBootstrap(nil, sigCh) }()
+
+	time.Sleep(200 * time.Millisecond)
+	sigCh <- syscall.SIGTERM
+
+	select {
+	case code := <-done:
+		if code != 0 {
+			t.Fatalf("runBootstrap() = %d, want 0", code)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for shutdown")
+	}
+}
+
+func TestRun_AuthGRPCDialFailureReturns1(t *testing.T) {
+	t.Setenv("IBEX_ENV", "development")
+	t.Setenv("IBEX_AUTH_GRPC_ADDR", "127.0.0.1:1")
+	t.Setenv("REDIS_URL", "")
+
+	if got := run(nil); got != 1 {
+		t.Fatalf("run() = %d, want 1", got)
+	}
+}
+
 func TestRunWithShutdown_StopsOnSignal(t *testing.T) {
 	log := logger.Discard("proxy")
 	providers, err := telemetry.Init(context.Background(), telemetry.Config{ServiceName: "proxy"})

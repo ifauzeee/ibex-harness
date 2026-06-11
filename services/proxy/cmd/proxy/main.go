@@ -31,7 +31,11 @@ func main() {
 	os.Exit(run(os.Args[1:]))
 }
 
-func run(_ []string) int {
+func run(args []string) int {
+	return runBootstrap(args, nil)
+}
+
+func runBootstrap(_ []string, signalCh chan os.Signal) int {
 	cfg, err := config.Load()
 	if err != nil {
 		slog.New(slog.NewJSONHandler(os.Stderr, nil)).Error("invalid configuration", "error", err)
@@ -81,7 +85,7 @@ func run(_ []string) int {
 	server := newHTTPServer(deps)
 	return runWithShutdown(shutdownOpts{
 		cfg: cfg, logger: log, providers: providers, server: server,
-		grpcConn: grpcConn, redisClient: redisClient,
+		grpcConn: grpcConn, redisClient: redisClient, signalCh: signalCh,
 	})
 }
 
