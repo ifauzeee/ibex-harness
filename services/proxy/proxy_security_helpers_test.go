@@ -179,6 +179,9 @@ func lastBurstProbe(t *testing.T, env securityTestEnv) (*http.Response, string) 
 	var resp *http.Response
 	var body string
 	for i := 0; i < int(rateLimitBurstRPM)+1; i++ {
+		if resp != nil {
+			resp.Body.Close()
+		}
 		resp, body = authProbeGET(t, opts)
 	}
 	return resp, body

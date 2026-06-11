@@ -320,7 +320,7 @@ jobs:
       - name: Proxy auth integration tests
         env:
           POSTGRES_TEST_DSN: postgres://ibex:ibex@localhost:5432/ibex?sslmode=disable
-        run: go test -tags=integration -count=1 ./services/proxy/...
+        run: go test -tags=integration -count=1 -p 1 ./services/proxy/...
 
   proxy-agent-verify-smoke:
     name: proxy-agent-verify-smoke
