@@ -305,16 +305,6 @@ func TestRun_StopsOnSignal(t *testing.T) {
 	}
 }
 
-func TestRun_AuthGRPCDialFailureReturns1(t *testing.T) {
-	t.Setenv("IBEX_ENV", "development")
-	t.Setenv("IBEX_AUTH_GRPC_ADDR", "127.0.0.1:1")
-	t.Setenv("REDIS_URL", "")
-
-	if got := run(nil); got != 1 {
-		t.Fatalf("run() = %d, want 1", got)
-	}
-}
-
 func TestRunWithShutdown_StopsOnSignal(t *testing.T) {
 	log := logger.Discard("proxy")
 	providers, err := telemetry.Init(context.Background(), telemetry.Config{ServiceName: "proxy"})

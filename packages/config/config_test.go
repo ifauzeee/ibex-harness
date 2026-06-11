@@ -98,6 +98,21 @@ func TestLogDebug_redactsNonStructValue(t *testing.T) {
 	}
 }
 
+func TestLogDebug_nilNestedPointer(t *testing.T) {
+	var buf strings.Builder
+	old := slog.Default()
+	slog.SetDefault(slog.New(slog.NewJSONHandler(&buf, &slog.HandlerOptions{Level: slog.LevelDebug})))
+	t.Cleanup(func() { slog.SetDefault(old) })
+
+	type wrap struct {
+		Ptr *nestedConfig
+	}
+	config.LogDebug(wrap{Ptr: nil})
+	if buf.String() == "" {
+		t.Fatal("expected log output")
+	}
+}
+
 func TestLogDebug_usesFieldNameWhenNoEnvTag(t *testing.T) {
 	var buf strings.Builder
 	old := slog.Default()
