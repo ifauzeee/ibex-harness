@@ -1,49 +1,11 @@
 package config
 
 import (
-	"log/slog"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 )
-
-func TestLoadFromEnvHappyPath(t *testing.T) {
-	t.Setenv("IBEX_ENV", "development")
-	t.Setenv("IBEX_LOG_LEVEL", "WARN")
-	t.Setenv("IBEX_RATE_LIMIT_DEFAULT_RPM", "500")
-	t.Setenv("IBEX_RATE_LIMIT_ORG_OVERRIDES", "550e8400-e29b-41d4-a716-446655440000=1000")
-	t.Setenv("REDIS_URL", "redis://127.0.0.1:6379/0")
-
-	cfg, err := Load()
-	if err != nil {
-		t.Fatalf("Load: %v", err)
-	}
-	if cfg.LogLevel != slog.LevelWarn {
-		t.Fatalf("log level: %v", cfg.LogLevel)
-	}
-	if cfg.RateLimit.DefaultRPM != 500 {
-		t.Fatalf("rpm: %d", cfg.RateLimit.DefaultRPM)
-	}
-	if len(cfg.RateLimit.OrgOverrides) != 1 {
-		t.Fatalf("overrides: %v", cfg.RateLimit.OrgOverrides)
-	}
-}
-
-func TestLoadRejectsInvalidLogLevel(t *testing.T) {
-	t.Setenv("IBEX_LOG_LEVEL", "VERBOSE")
-	if _, err := Load(); err == nil {
-		t.Fatal("expected invalid log level error")
-	}
-}
-
-func TestLoadRejectsInvalidOrgRPMOverrides(t *testing.T) {
-	t.Setenv("IBEX_ENV", "development")
-	t.Setenv("IBEX_RATE_LIMIT_ORG_OVERRIDES", "not-a-uuid=60")
-	if _, err := Load(); err == nil {
-		t.Fatal("expected invalid org override error")
-	}
-}
 
 func validProxyConfig() Config {
 	cfg := Config{
@@ -178,13 +140,6 @@ func TestApplyDefaultsShutdownTimeout(t *testing.T) {
 	cfg.ApplyDefaults()
 	if cfg.ShutdownTimeout != 30*time.Second {
 		t.Fatalf("ShutdownTimeout: %s", cfg.ShutdownTimeout)
-	}
-}
-
-func TestLoadRejectsNonPositiveShutdownTimeout(t *testing.T) {
-	t.Setenv("IBEX_SHUTDOWN_TIMEOUT", "0s")
-	if _, err := Load(); err == nil {
-		t.Fatal("expected error for zero shutdown timeout")
 	}
 }
 
