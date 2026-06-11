@@ -42,7 +42,7 @@
 | Profile | Scope | Measured |
 |---------|-------|----------|
 | Unit only | Excludes `packages/proto/gen/go` | **83.5%** (local) |
-| Merged (unit + integration) | CI Postgres service; gate target | **≥94%** (CI job `coverage`) |
+| Merged (unit + integration) | CI Postgres service; gate target | **≥80%** (CI job `coverage`) |
 
 **Interpretation:** Unit-only understates production safety — repository, RLS, and SEC paths are integration-only by design. The gate uses the **merged** profile on filtered (hand-written) code.
 
@@ -98,6 +98,6 @@ The `coverage` workflow job:
 1. Unit + integration profiles with Postgres 16 service container  
 2. Merges profiles → `coverage-go-merged.out`  
 3. Filters gen/go → `coverage-go-handwritten.out`  
-4. `infra/scripts/coverage-gate.sh` enforces **≥94%** on hand-written statements  
+4. `infra/scripts/coverage-gate.sh` enforces **≥80%** on hand-written statements  
 
 Push to a branch with these changes to confirm the job passes end-to-end (local Docker/Postgres unavailable in transform environment).

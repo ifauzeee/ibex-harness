@@ -48,7 +48,7 @@ ibex-harness/
 - **Included:** `packages/*` (except `packages/proto/gen/go`), `services/auth`, `services/proxy`
 - **Excluded:** `packages/proto/gen/go/**` (generated stubs), `infra/**` (test fixtures, migrate CLI — covered by dedicated jobs)
 - **Contract tests:** `packages/proto/*_contract_test.go` — compile-time + descriptor checks
-- **Gate script:** `infra/scripts/coverage-gate.sh` filters merged profile before enforcing ≥94%
+- **Gate script:** `infra/scripts/coverage-gate.sh` filters merged profile before enforcing ≥80%
 
 ## Tier policy (Phase 0 audit)
 

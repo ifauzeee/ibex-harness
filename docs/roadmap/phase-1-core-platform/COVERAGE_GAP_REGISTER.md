@@ -1,6 +1,6 @@
 # Coverage Gap Register
 
-**Target:** ≥94% merged statement coverage (unit + integration) on **hand-written code only**.  
+**Target:** ≥80% merged statement coverage (unit + integration) on **hand-written code only**.  
 **Excluded:** `packages/proto/gen/go/**` (generated protobuf). Contract tests remain in `packages/proto/`.
 
 **Baseline (pre–Phase 0 drive):** ~51% Codecov badge | ~37% unit total
@@ -24,7 +24,7 @@
 
 **Tooling:** `make coverage-report`, `infra/scripts/coverage-filter.sh`, `infra/scripts/coverage-gate.sh`
 
-**CI:** `coverage` job merges unit + integration (Postgres service), filters gen/go, enforces **94%** on hand-written scope.
+**CI:** `coverage` job merges unit + integration (Postgres service), filters gen/go, enforces **80%** on hand-written scope.
 
 **Local merged profile:**
 

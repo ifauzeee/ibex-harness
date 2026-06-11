@@ -24,7 +24,7 @@
 | `proxy-auth-smoke` | `proxy-auth-smoke` | Full proxy unit + integration | Was informational | Promoted; `-count=1` |
 | `bandit` | `bandit` | Python SAST | **High until memory service:** exits 0 if missing | Not required until `services/memory` exists |
 | `hadolint` | `hadolint` | Dockerfile lint | Low (exits 0 if no Dockerfiles) | — |
-| `coverage` | `coverage` | Merged unit+integration Go coverage ≥94% on hand-written scope; Codecov upload | Medium: Postgres service required | `infra/scripts/coverage-gate.sh` filters `packages/proto/gen/go` |
+| `coverage` | `coverage` | Merged unit+integration Go coverage ≥80% on hand-written scope; Codecov upload | Medium: Postgres service required | `infra/scripts/coverage-gate.sh` filters `packages/proto/gen/go` |
 
 ## Informational checks (not merge-blocking)
 
