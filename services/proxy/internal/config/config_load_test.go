@@ -23,9 +23,9 @@ func TestLoad(t *testing.T) {
 			name: "happy path",
 			env: map[string]string{
 				"IBEX_ENV": "development", "IBEX_LOG_LEVEL": "WARN",
-				"IBEX_RATE_LIMIT_DEFAULT_RPM": "500",
+				"IBEX_RATE_LIMIT_DEFAULT_RPM":   "500",
 				"IBEX_RATE_LIMIT_ORG_OVERRIDES": "550e8400-e29b-41d4-a716-446655440000=1000",
-				"REDIS_URL": "redis://127.0.0.1:6379/0",
+				"REDIS_URL":                     "redis://127.0.0.1:6379/0",
 			},
 			check: func(t *testing.T, cfg Config) {
 				if cfg.LogLevel != slog.LevelWarn {
