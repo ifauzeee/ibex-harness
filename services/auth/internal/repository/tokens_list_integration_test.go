@@ -3,7 +3,6 @@
 package repository_test
 
 import (
-	"context"
 	"testing"
 
 	"github.com/Rick1330/ibex-harness/infra/testing/testutil"
@@ -18,14 +17,8 @@ func TestTokensRepository_ListTokens_CursorPagination(t *testing.T) {
 	id2 := insertNamedToken(t, repo, orgID, "token-b")
 	id3 := insertNamedToken(t, repo, orgID, "token-c")
 
-	page1, cursor, err := repo.ListTokens(context.Background(), orgID, "", 2)
-	if err != nil || len(page1) != 2 || cursor == "" {
-		t.Fatalf("page1: len=%d cursor=%q err=%v", len(page1), cursor, err)
-	}
-	page2, next, err := repo.ListTokens(context.Background(), orgID, cursor, 2)
-	if err != nil || len(page2) != 1 || next != "" {
-		t.Fatalf("page2: len=%d next=%q err=%v", len(page2), next, err)
-	}
+	page1, cursor := listTokensPage(t, repo, orgID, "", 2, 2, true)
+	page2, _ := listTokensPage(t, repo, orgID, cursor, 2, 1, false)
 	assertTokenIDsPresent(t, []string{id1, id2, id3}, append(page1, page2...))
 }
 

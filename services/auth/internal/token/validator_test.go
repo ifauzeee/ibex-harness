@@ -3,7 +3,6 @@ package token_test
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"testing"
 	"time"
 
@@ -17,38 +16,11 @@ type fakeLookup struct {
 	err error
 }
 
-func (f *fakeLookup) FindActiveByPrefix(_ context.Context, _ string) (repository.TokenRow, error) {
+func (f *fakeLookup) FindActiveByPrefix(ctx context.Context, _ string) (repository.TokenRow, error) {
 	if f.err != nil {
 		return repository.TokenRow{}, f.err
 	}
 	return f.row, nil
-}
-
-func runValidatorCase(t *testing.T, argon2 token.Argon2Params, tc validatorCase, agentID, userID string) {
-	t.Helper()
-	v := token.NewValidator(tc.lookup, argon2)
-	resp, err := v.Validate(context.Background(), tc.token)
-	if tc.wantErr != nil {
-		if !errors.Is(err, tc.wantErr) {
-			t.Fatalf("err: got %v want %v", err, tc.wantErr)
-		}
-		return
-	}
-	if tc.expect == "db error" {
-		if err == nil {
-			t.Fatal("expected error")
-		}
-		return
-	}
-	if err != nil {
-		t.Fatalf("Validate: %v", err)
-	}
-	if resp.GetOrgId() == "" || resp.GetPermissions() != 42 {
-		t.Fatalf("resp: %+v", resp)
-	}
-	if resp.GetAgentId() != agentID || resp.GetUserId() != userID {
-		t.Fatalf("optional fields missing")
-	}
 }
 
 func TestValidator_Validate(t *testing.T) {

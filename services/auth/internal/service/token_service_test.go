@@ -10,86 +10,45 @@ import (
 	authv1 "github.com/Rick1330/ibex-harness/packages/proto/gen/go/ibex/auth/v1"
 	"github.com/Rick1330/ibex-harness/services/auth/internal/repository"
 	"github.com/google/uuid"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
+
+func runCreateTokenCase(t *testing.T, tc createTokenCase) {
+	t.Helper()
+	repo := newMemTokenRepo()
+	svc := testTokenService(repo)
+	result, err := svc.CreateToken(context.Background(), tc.req)
+	if tc.wantErr != nil {
+		if !errors.Is(err, tc.wantErr) {
+			t.Fatalf("CreateToken err: got %v want %v", err, tc.wantErr)
+		}
+		return
+	}
+	if err != nil {
+		t.Fatalf("CreateToken: %v", err)
+	}
+	if result.TokenID == "" || result.Plaintext == "" || result.Prefix == "" {
+		t.Fatalf("incomplete result: %+v", result)
+	}
+	if _, ok := repo.tokens[result.TokenID]; !ok {
+		t.Fatal("token not persisted in repo")
+	}
+}
 
 func TestTokenService_CreateToken(t *testing.T) {
 	t.Parallel()
-
 	orgID := uuid.New().String()
 	expires := time.Now().UTC().Add(24 * time.Hour)
-	userID := uuid.New().String()
-	agentID := uuid.New().String()
-
-	tests := []struct {
-		name    string
-		req     *authv1.CreateTokenRequest
-		wantErr error
-	}{
-		{
-			name:    "invalid empty org",
-			req:     &authv1.CreateTokenRequest{Name: "x"},
-			wantErr: ErrInvalidArgument,
-		},
-		{
-			name:    "invalid empty name",
-			req:     &authv1.CreateTokenRequest{OrgId: orgID},
-			wantErr: ErrInvalidArgument,
-		},
-		{
-			name: "invalid token type",
-			req: &authv1.CreateTokenRequest{
-				OrgId: orgID, Name: "bad-type", Type: authv1.TokenType(99),
-			},
-			wantErr: ErrInvalidArgument,
-		},
-		{
-			name: "happy path",
-			req: &authv1.CreateTokenRequest{
-				OrgId:       orgID,
-				Name:        "ci-pat",
-				Description: "desc",
-				Permissions: 42,
-				UserId:      &userID,
-				AgentId:     &agentID,
-				ExpiresAt:   timestamppb.New(expires),
-			},
-		},
-	}
-
-	for _, tc := range tests {
+	for _, tc := range createTokenCases(orgID, uuid.NewString(), uuid.NewString(), expires) {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-
-			repo := newMemTokenRepo()
-			svc := testTokenService(repo)
-
-			result, err := svc.CreateToken(context.Background(), tc.req)
-
-			if tc.wantErr != nil {
-				if !errors.Is(err, tc.wantErr) {
-					t.Fatalf("CreateToken err: got %v want %v", err, tc.wantErr)
-				}
-				return
-			}
-
-			if err != nil {
-				t.Fatalf("CreateToken: %v", err)
-			}
-			if result.TokenID == "" || result.Plaintext == "" || result.Prefix == "" {
-				t.Fatalf("incomplete result: %+v", result)
-			}
-			if _, ok := repo.tokens[result.TokenID]; !ok {
-				t.Fatal("token not persisted in repo")
-			}
+			runCreateTokenCase(t, tc)
 		})
 	}
 }
 
 func TestTokenService_CreateToken_repoError(t *testing.T) {
 	t.Parallel()
-
 	svc := testTokenService(errTokenRepo{})
 	_, err := svc.CreateToken(context.Background(), &authv1.CreateTokenRequest{
 		OrgId: uuid.NewString(), Name: "x", Type: authv1.TokenType_TOKEN_TYPE_PAT,
@@ -101,22 +60,18 @@ func TestTokenService_CreateToken_repoError(t *testing.T) {
 
 func TestTokenService_RevokeToken(t *testing.T) {
 	t.Parallel()
-
 	orgID := uuid.New().String()
 	tokenID := uuid.New().String()
 	repo := newMemTokenRepo()
 	repo.tokens[tokenID] = repository.CreateTokenParams{ID: tokenID, OrgID: orgID}
 	svc := testTokenService(repo)
-
-	err := svc.RevokeToken(context.Background(), orgID, tokenID, "", nil)
-	if err != nil {
+	if err := svc.RevokeToken(context.Background(), orgID, tokenID, "", nil); err != nil {
 		t.Fatalf("RevokeToken: %v", err)
 	}
 	if !repo.revoked[tokenID] {
 		t.Fatal("token not marked revoked")
 	}
-
-	err = svc.RevokeToken(context.Background(), orgID, uuid.NewString(), "", nil)
+	err := svc.RevokeToken(context.Background(), orgID, uuid.NewString(), "", nil)
 	if !errors.Is(err, repository.ErrNotFound) {
 		t.Fatalf("expected ErrNotFound, got %v", err)
 	}
@@ -124,7 +79,6 @@ func TestTokenService_RevokeToken(t *testing.T) {
 
 func TestTokenService_ListTokens(t *testing.T) {
 	t.Parallel()
-
 	orgID := uuid.New().String()
 	expires := time.Now().UTC().Add(time.Hour)
 	revokedAt := time.Now().UTC().Add(-time.Minute)
@@ -142,7 +96,6 @@ func TestTokenService_ListTokens(t *testing.T) {
 		},
 	}
 	svc := testTokenService(repo)
-
 	rows, next, err := svc.ListTokens(context.Background(), orgID, "", 10)
 	if err != nil {
 		t.Fatalf("ListTokens: %v", err)

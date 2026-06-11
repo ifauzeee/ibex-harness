@@ -73,34 +73,31 @@ func TestReadyHandler_CriticalFailure(t *testing.T) {
 	}
 }
 
-func TestHandler_rejectsNonGET(t *testing.T) {
+func assertMethodNotAllowed(t *testing.T, rec *httptest.ResponseRecorder, wantAllow bool) {
+	t.Helper()
+	if rec.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("expected 405, got %d", rec.Code)
+	}
+	if wantAllow && rec.Header().Get("Allow") != http.MethodGet {
+		t.Fatalf("Allow header: %q", rec.Header().Get("Allow"))
+	}
+}
+
+func TestReadyHandler_rejectsNonGET(t *testing.T) {
 	t.Parallel()
-	cases := []struct {
-		name    string
-		handler http.HandlerFunc
-		method  string
-		path    string
-	}{
-		{name: "ready POST", handler: (&Server{CriticalCheckers: map[string]Checker{
-			"a": func(ctx context.Context) error { return nil },
-		}}).ReadyHandler(), method: http.MethodPost, path: "/ready"},
-		{name: "health PUT", handler: (&Server{}).HealthHandler(), method: http.MethodPut, path: "/health"},
-	}
-	for _, tc := range cases {
-		tc := tc
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-			req := httptest.NewRequest(tc.method, tc.path, nil)
-			rec := httptest.NewRecorder()
-			tc.handler(rec, req)
-			if rec.Code != http.StatusMethodNotAllowed {
-				t.Fatalf("expected 405, got %d", rec.Code)
-			}
-			if tc.path == "/ready" && rec.Header().Get("Allow") != http.MethodGet {
-				t.Fatalf("Allow header: %q", rec.Header().Get("Allow"))
-			}
-		})
-	}
+	srv := &Server{CriticalCheckers: map[string]Checker{
+		"a": func(ctx context.Context) error { return nil },
+	}}
+	rec := httptest.NewRecorder()
+	srv.ReadyHandler()(rec, httptest.NewRequest(http.MethodPost, "/ready", nil))
+	assertMethodNotAllowed(t, rec, true)
+}
+
+func TestHealthHandler_rejectsNonGET(t *testing.T) {
+	t.Parallel()
+	rec := httptest.NewRecorder()
+	(&Server{}).HealthHandler()(rec, httptest.NewRequest(http.MethodPut, "/health", nil))
+	assertMethodNotAllowed(t, rec, false)
 }
 
 func TestReadyHandler_customTimeouts(t *testing.T) {

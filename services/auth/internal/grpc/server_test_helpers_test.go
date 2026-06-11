@@ -43,15 +43,6 @@ func (f *fakeTokenRepo) CreateToken(ctx context.Context, p repository.CreateToke
 	return p.ID, nil
 }
 
-func (f *fakeTokenRepo) RevokeToken(ctx context.Context, orgID, tokenID, revokedBy string, reason *string) error {
-	if f.revokeFn != nil {
-		return f.revokeFn(ctx, revokeTokenInput{
-			orgID: orgID, tokenID: tokenID, revokedBy: revokedBy, reason: reason,
-		})
-	}
-	return nil
-}
-
 func (f *fakeTokenRepo) ListTokens(ctx context.Context, orgID, cursor string, limit int) ([]repository.TokenMetadata, string, error) {
 	if f.listFn != nil {
 		return f.listFn(ctx, orgID, cursor, limit)

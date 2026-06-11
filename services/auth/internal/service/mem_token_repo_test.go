@@ -37,10 +37,6 @@ type revokeTokenInput struct {
 	reason    *string
 }
 
-func (m *memTokenRepo) RevokeToken(_ context.Context, orgID, tokenID, revokedBy string, reason *string) error {
-	return m.revoke(revokeTokenInput{orgID: orgID, tokenID: tokenID, revokedBy: revokedBy, reason: reason})
-}
-
 func tokenMissingForRevoke(p repository.CreateTokenParams, ok bool, orgID, tokenID string, revoked map[string]bool) bool {
 	if !ok {
 		return true

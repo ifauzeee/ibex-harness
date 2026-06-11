@@ -71,6 +71,24 @@ func runFindActiveCase(t *testing.T, tc findActiveCase) {
 	}
 }
 
+func listTokensPage(t *testing.T, repo *repository.TokensRepository, orgID, cursor string, limit, wantLen int, wantCursor bool) ([]repository.TokenMetadata, string) {
+	t.Helper()
+	rows, next, err := repo.ListTokens(context.Background(), orgID, cursor, limit)
+	if err != nil {
+		t.Fatalf("ListTokens: %v", err)
+	}
+	if len(rows) != wantLen {
+		t.Fatalf("len: got %d want %d", len(rows), wantLen)
+	}
+	if wantCursor && next == "" {
+		t.Fatal("expected next cursor")
+	}
+	if !wantCursor && next != "" {
+		t.Fatalf("unexpected cursor %q", next)
+	}
+	return rows, next
+}
+
 func insertNamedToken(t *testing.T, repo *repository.TokensRepository, orgID, name string) string {
 	t.Helper()
 	tokenID := uuid.New()

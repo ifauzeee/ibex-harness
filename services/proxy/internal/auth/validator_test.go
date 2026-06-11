@@ -2,7 +2,6 @@ package auth
 
 import (
 	"context"
-	"errors"
 	"testing"
 	"time"
 
@@ -14,28 +13,31 @@ func strPtr(s string) *string { return &s }
 
 func runGRPCValidatorCase(t *testing.T, tc grpcValidatorCase, accessToken string) {
 	t.Helper()
-	v := NewGRPCValidator(tc.client, time.Second)
-	got, err := v.Validate(context.Background(), accessToken)
+	got, err := NewGRPCValidator(tc.client, time.Second).Validate(context.Background(), accessToken)
 	if tc.wantErr != nil {
-		if !errors.Is(err, tc.wantErr) {
-			t.Fatalf("err = %v, want %v", err, tc.wantErr)
-		}
+		assertValidatorError(t, err, tc.wantErr)
 		return
 	}
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if got.OrgID != tc.want.OrgID || got.Permissions != tc.want.Permissions {
-		t.Fatalf("result: %+v, want %+v", got, tc.want)
-	}
-	if got.AgentID != tc.want.AgentID || got.UserID != tc.want.UserID || got.TokenID != tc.want.TokenID {
-		t.Fatalf("optional fields: %+v, want %+v", got, tc.want)
+	assertValidatorResult(t, got, tc.want)
+}
+
+func TestGRPCValidator_Validate_success(t *testing.T) {
+	t.Parallel()
+	for _, tc := range grpcValidatorSuccessCases(t) {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			runGRPCValidatorCase(t, tc, "ibex_pat_test")
+		})
 	}
 }
 
-func TestGRPCValidator_Validate(t *testing.T) {
+func TestGRPCValidator_Validate_errors(t *testing.T) {
 	t.Parallel()
-	for _, tc := range grpcValidatorCases(t) {
+	for _, tc := range grpcValidatorErrorCases() {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()

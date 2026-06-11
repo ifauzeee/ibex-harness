@@ -1,0 +1,56 @@
+package main
+
+import (
+	"net"
+	"testing"
+	"time"
+
+	"github.com/Rick1330/ibex-harness/packages/logger"
+	authv1 "github.com/Rick1330/ibex-harness/packages/proto/gen/go/ibex/auth/v1"
+	"github.com/Rick1330/ibex-harness/services/proxy/internal/config"
+	"google.golang.org/grpc"
+)
+
+func startAuthGRPCForTest(t *testing.T) net.Listener {
+	t.Helper()
+	lis, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	grpcSrv := grpc.NewServer() // nosemgrep: go.grpc.security.grpc-server-insecure-connection
+	authv1.RegisterAuthServiceServer(grpcSrv, authv1.UnimplementedAuthServiceServer{})
+	go func() { _ = grpcSrv.Serve(lis) }()
+	t.Cleanup(func() { grpcSrv.Stop() })
+	return lis
+}
+
+func assertAuthClientsPresent(t *testing.T, validator, agentVerifier, client, conn any) {
+	t.Helper()
+	if validator == nil || agentVerifier == nil || client == nil || conn == nil {
+		t.Fatal("expected auth clients")
+	}
+}
+
+func TestSetupAuthClients_WithGRPCServer(t *testing.T) {
+	lis := startAuthGRPCForTest(t)
+	log := logger.Discard("proxy")
+	validator, agentVerifier, client, conn, err := setupAuthClients(config.Config{
+		AuthGRPCAddr: lis.Addr().String(), AuthValidateTimeout: time.Second,
+	}, log)
+	if err != nil {
+		t.Fatalf("setupAuthClients: %v", err)
+	}
+	t.Cleanup(func() { _ = conn.Close() })
+	assertAuthClientsPresent(t, validator, agentVerifier, client, conn)
+}
+
+func TestSetupAuthClients_EmptyAddr(t *testing.T) {
+	log := logger.Discard("proxy")
+	validator, agentVerifier, client, conn, err := setupAuthClients(config.Config{AuthGRPCAddr: ""}, log)
+	if err != nil {
+		t.Fatalf("setupAuthClients: %v", err)
+	}
+	if validator != nil || agentVerifier != nil || client != nil || conn != nil {
+		t.Fatal("expected nil auth clients when addr is empty")
+	}
+}
