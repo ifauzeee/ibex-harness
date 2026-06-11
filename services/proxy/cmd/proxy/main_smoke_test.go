@@ -19,7 +19,8 @@ func proxyBootstrapSmokeEnv(t *testing.T) (sigCh chan os.Signal, httpPort string
 	if err != nil {
 		t.Fatal(err)
 	}
-	grpcSrv := grpc.NewServer() // nosemgrep: go.grpc.security.grpc-server-insecure-connection
+	// nosemgrep: go.grpc.security.grpc-server-insecure-connection.grpc-server-insecure-connection
+	grpcSrv := grpc.NewServer()
 	authv1.RegisterAuthServiceServer(grpcSrv, authv1.UnimplementedAuthServiceServer{})
 	go func() { _ = grpcSrv.Serve(lis) }()
 	t.Cleanup(func() { grpcSrv.Stop(); _ = lis.Close() })
