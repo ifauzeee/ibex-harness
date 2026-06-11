@@ -3,12 +3,9 @@
 package repository_test
 
 import (
-	"context"
 	"testing"
 
-	"github.com/Rick1330/ibex-harness/infra/testing/testutil"
-	"github.com/Rick1330/ibex-harness/services/auth/internal/repository"
-	"github.com/google/uuid"
+	"github.com/Rick1330/ibex-harness/infra/testing/repotest"
 )
 
 func TestAgentsRepository_GetByIDAndOrg(t *testing.T) {
@@ -27,44 +24,21 @@ func TestAgentsRepository_GetByIDAndOrg(t *testing.T) {
 	for _, tc := range tests {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-			dsn, cleanupPG := testutil.SetupPostgres(t)
-			defer cleanupPG()
-
-			db := testutil.OpenDB(t, dsn)
-			defer db.Close()
-
-			repo := repository.NewAgentsRepository(db, nil)
-			orgA := testutil.SeedOrganization(t, db, "Org A "+tc.name, "org-a-"+uuid.NewString()[:8])
-			orgB := testutil.SeedOrganization(t, db, "Org B "+tc.name, "org-b-"+uuid.NewString()[:8])
-			userA := testutil.SeedUser(t, db, orgA, "user-"+uuid.NewString()[:8]+"@test.local", "User A")
-
-			agentID := testutil.SeedAgentWithStatus(
-				t, db, orgA, userA, "Agent "+tc.name, "agent-"+uuid.NewString()[:8], tc.status,
-			)
-
-			lookupOrg := orgA
-			if tc.crossOrg {
-				lookupOrg = orgB
-			}
-
-			rec, err := repo.GetByIDAndOrg(context.Background(), uuid.MustParse(agentID), uuid.MustParse(lookupOrg))
-			if err != nil {
-				t.Fatalf("GetByIDAndOrg: %v", err)
-			}
-
-			if tc.wantNil {
-				if rec != nil {
-					t.Fatalf("expected nil for cross-org lookup, got %+v", rec)
+			repotest.WithAgentsScenario(t, tc.status, tc.crossOrg, func(t *testing.T, s repotest.AgentsScenario, lookupOrg string) {
+				rec := s.LookupAgent(t, lookupOrg)
+				if tc.wantNil {
+					if rec != nil {
+						t.Fatalf("expected nil for cross-org lookup, got %+v", rec)
+					}
+					return
 				}
-				return
-			}
-
-			if rec == nil {
-				t.Fatal("expected agent record")
-			}
-			if rec.ID != agentID || rec.OrgID != orgA || rec.Status != tc.wantStatus {
-				t.Fatalf("record mismatch: %+v", rec)
-			}
+				if rec == nil {
+					t.Fatal("expected agent record")
+				}
+				if rec.ID != s.AgentID || rec.OrgID != s.OrgA || rec.Status != tc.wantStatus {
+					t.Fatalf("record mismatch: %+v", rec)
+				}
+			})
 		})
 	}
 }
