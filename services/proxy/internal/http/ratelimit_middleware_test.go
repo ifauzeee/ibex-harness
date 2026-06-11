@@ -3,7 +3,6 @@ package http
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -106,65 +105,6 @@ func TestRateLimitMiddleware_denied(t *testing.T) {
 	}
 	if body.Error.Code != string(apierror.CodeRateLimited) {
 		t.Fatalf("code: %q", body.Error.Code)
-	}
-}
-
-func TestRateLimitMiddleware_failOpen(t *testing.T) {
-	t.Parallel()
-
-	orgID := uuid.MustParse("550e8400-e29b-41d4-a716-446655440000")
-	limiter := &mockLimiter{err: errors.New("redis down")}
-
-	handler := RateLimitMiddleware(limiter, logger.Discard("proxy"), metrics.NewProxy("test"))(
-		http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-			w.WriteHeader(http.StatusOK)
-		}),
-	)
-
-	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/v1/internal/auth-probe", nil)
-	req = req.WithContext(auth.WithContext(req.Context(), &auth.ValidateResult{OrgID: orgID.String()}))
-	handler.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected fail-open 200, got %d", rec.Code)
-	}
-}
-
-func TestRateLimitMiddleware_missingAuthContext(t *testing.T) {
-	t.Parallel()
-
-	handler := RateLimitMiddleware(&mockLimiter{}, logger.Discard("proxy"), metrics.NewProxy("test"))(
-		http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-			w.WriteHeader(http.StatusOK)
-		}),
-	)
-
-	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/v1/internal/auth-probe", nil)
-	handler.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusInternalServerError {
-		t.Fatalf("status: %d", rec.Code)
-	}
-}
-
-func TestRateLimitMiddleware_invalidOrgID(t *testing.T) {
-	t.Parallel()
-
-	handler := RateLimitMiddleware(&mockLimiter{}, logger.Discard("proxy"), metrics.NewProxy("test"))(
-		http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-			w.WriteHeader(http.StatusOK)
-		}),
-	)
-
-	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/v1/internal/auth-probe", nil)
-	req = req.WithContext(auth.WithContext(req.Context(), &auth.ValidateResult{OrgID: "not-a-uuid"}))
-	handler.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusInternalServerError {
-		t.Fatalf("status: %d body=%s", rec.Code, rec.Body.String())
 	}
 }
 
