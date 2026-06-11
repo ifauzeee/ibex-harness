@@ -19,7 +19,7 @@ func TestParentBasedSampler_zeroRatioUsesDefault(t *testing.T) {
 	if providers.TracerProvider == nil {
 		t.Fatal("expected tracer provider")
 	}
-	t.Cleanup(func() { _ = providers.Shutdown(t.Context()) })
+	t.Cleanup(func() { _ = providers.Shutdown(t.Context()) }) //nolint:errcheck // test teardown
 }
 
 func TestParentBasedSampler_defaultRatioFromEnv(t *testing.T) {

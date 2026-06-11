@@ -28,6 +28,18 @@ func TestBodySizeLimitMiddleware_rejectsOversizedContentLength(t *testing.T) {
 	}
 }
 
+func TestContentTypeMiddleware_allowsGETWithoutJSON(t *testing.T) {
+	handler := ContentTypeMiddleware("")(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status: %d", rec.Code)
+	}
+}
+
 func TestContentTypeMiddleware_requiresJSON(t *testing.T) {
 	handler := chain(
 		RequestContextMiddleware(config.Config{RequestIDHeader: "X-Request-ID", TraceIDHeader: "X-Trace-ID"}),

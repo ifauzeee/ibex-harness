@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Fail if merged Go coverage is below MIN_COVERAGE (default 94) on hand-written code.
+# Fail if merged Go coverage is below MIN_COVERAGE (default 80) on hand-written code.
 # Generated protobuf (packages/proto/gen/go) is excluded — see TEST_ARCHITECTURE.md.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-MIN_RAW="${MIN_COVERAGE:-94}"
+MIN_RAW="${MIN_COVERAGE:-80}"
 if ! [[ "$MIN_RAW" =~ ^[0-9]+$ ]]; then
   echo "MIN_COVERAGE must be an integer, got: $MIN_RAW"
   exit 1

@@ -10,8 +10,10 @@ import (
 )
 
 var (
+	// ErrTCPAddressNotConfigured is returned when a TCP checker has no target address.
 	ErrTCPAddressNotConfigured = errors.New("tcp address not configured")
-	ErrTCPReadinessTimeout     = errors.New("tcp readiness check timed out")
+	// ErrTCPReadinessTimeout is returned when a TCP dial exceeds the checker deadline.
+	ErrTCPReadinessTimeout = errors.New("tcp readiness check timed out")
 )
 
 // TCPReachable dials hostPort to verify a listener accepts connections.

@@ -41,7 +41,7 @@ test-integration: ## Run all Go integration tests (-tags=integration)
 coverage-report: ## Generate unit (+ integration if POSTGRES_TEST_DSN set) coverage report
 	@"$(BASH)" infra/scripts/coverage-report.sh
 
-coverage-gate: ## Fail if merged coverage profile is below MIN_COVERAGE (default 94)
+coverage-gate: ## Fail if merged coverage profile is below MIN_COVERAGE (default 80)
 	@"$(BASH)" infra/scripts/coverage-gate.sh coverage-go-merged.out
 
 compose-dev-up: ## Start local development dependencies

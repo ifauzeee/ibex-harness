@@ -33,6 +33,7 @@ func CallerFromContext(ctx context.Context) (CallerContext, bool) {
 }
 
 // AuthzUnaryInterceptor validates caller bearer tokens for management RPCs.
+// tokenValidator is the unexported interface declared in server.go (same package).
 func AuthzUnaryInterceptor(validator tokenValidator) grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
 		if info.FullMethod == "/ibex.auth.v1.AuthService/ValidateToken" {

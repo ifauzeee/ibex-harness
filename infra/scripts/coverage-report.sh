@@ -9,16 +9,16 @@ UNIT_OUT="${1:-coverage-go-unit.out}"
 INT_OUT="${2:-coverage-go-integration.out}"
 MERGED_OUT="${3:-coverage-go-merged.out}"
 
-PACKAGES="./packages/... ./services/auth/... ./services/proxy/..."
-
 echo "==> Unit coverage"
-go test -count=1 -coverprofile="$UNIT_OUT" $PACKAGES
+go test -count=1 -coverprofile="$UNIT_OUT" \
+  ./packages/... ./services/auth/... ./services/proxy/...
 
 echo "==> Integration coverage (requires POSTGRES_TEST_DSN or compose-test)"
 if [[ -z "${POSTGRES_TEST_DSN:-}" ]]; then
   echo "POSTGRES_TEST_DSN not set — skipping integration profile"
 else
-  go test -tags=integration -count=1 -p 1 -coverprofile="$INT_OUT" $PACKAGES ./infra/...
+  go test -tags=integration -count=1 -p 1 -coverprofile="$INT_OUT" \
+    ./packages/... ./services/auth/... ./services/proxy/... ./infra/...
   if command -v gocovmerge >/dev/null 2>&1; then
     gocovmerge "$UNIT_OUT" "$INT_OUT" > "$MERGED_OUT"
   else

@@ -98,6 +98,18 @@ func TestLogDebug_redactsNonStructValue(t *testing.T) {
 	}
 }
 
+func TestLogDebug_typedNilPointer(t *testing.T) {
+	var buf strings.Builder
+	old := slog.Default()
+	slog.SetDefault(slog.New(slog.NewJSONHandler(&buf, &slog.HandlerOptions{Level: slog.LevelDebug})))
+	t.Cleanup(func() { slog.SetDefault(old) })
+
+	config.LogDebug((*nestedConfig)(nil))
+	if buf.String() == "" {
+		t.Fatal("expected log output for typed nil pointer")
+	}
+}
+
 func TestLogDebug_nilNestedPointer(t *testing.T) {
 	var buf strings.Builder
 	old := slog.Default()

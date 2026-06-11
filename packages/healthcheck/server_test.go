@@ -115,6 +115,28 @@ func TestHealthHandler_rejectsNonGET(t *testing.T) {
 	}
 }
 
+func TestReadyHandler_customTimeouts(t *testing.T) {
+	t.Parallel()
+
+	srv := &Server{
+		OverallTimeout:  2,
+		PerCheckTimeout: 1,
+		CriticalCheckers: map[string]Checker{
+			"a": func(ctx context.Context) error { return nil },
+		},
+	}
+	req := httptest.NewRequest(http.MethodGet, "/ready", nil)
+	rec := httptest.NewRecorder()
+	srv.ReadyHandler()(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rec.Code)
+	}
+	if srv.overallTimeout() != 2 || srv.perCheckTimeout() != 1 {
+		t.Fatalf("timeouts: overall=%s per=%s", srv.overallTimeout(), srv.perCheckTimeout())
+	}
+}
+
 func TestReadyHandler_AdvisoryFailure(t *testing.T) {
 	t.Parallel()
 	srv := &Server{

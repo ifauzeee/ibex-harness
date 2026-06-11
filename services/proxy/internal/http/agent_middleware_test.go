@@ -2,6 +2,7 @@ package http
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -81,6 +82,7 @@ func TestAgentVerification(t *testing.T) {
 		{name: "wrong org", verifier: &mockAgentVerifier{err: auth.ErrAgentNotAuthorized}, agentID: agentTestAgentID(), withAuth: true, wantStatus: http.StatusForbidden, wantBody: string(apierror.CodeAgentNotAuthorized)},
 		{name: "suspended", verifier: &mockAgentVerifier{err: auth.ErrAgentSuspended}, agentID: agentTestAgentID(), withAuth: true, wantStatus: http.StatusForbidden, wantBody: string(apierror.CodeAgentSuspended)},
 		{name: "auth down", verifier: &mockAgentVerifier{err: auth.ErrAgentVerifyUnavailable}, agentID: agentTestAgentID(), withAuth: true, wantStatus: http.StatusServiceUnavailable, wantBody: string(apierror.CodeAuthUnavailable)},
+		{name: "generic verify error", verifier: &mockAgentVerifier{err: errors.New("upstream failure")}, agentID: agentTestAgentID(), withAuth: true, wantStatus: http.StatusServiceUnavailable, wantBody: string(apierror.CodeAuthUnavailable)},
 		{name: "no auth context", verifier: &mockAgentVerifier{}, agentID: agentTestAgentID(), withAuth: false, wantStatus: http.StatusInternalServerError},
 	}
 	for _, tt := range tests {

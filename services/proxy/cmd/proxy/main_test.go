@@ -34,11 +34,13 @@ func TestRun_InvalidConfigReturns1(t *testing.T) {
 func TestRateLimitSliderConfig(t *testing.T) {
 	t.Parallel()
 	orgID := uuid.MustParse("00000000-0000-0000-0000-000000000001")
+	otherOrg := uuid.MustParse("00000000-0000-0000-0000-000000000002")
 	cfg := config.Config{
 		RateLimit: config.RateLimitConfig{
 			DefaultRPM: 120,
 			OrgOverrides: map[uuid.UUID]int{
-				orgID: 30,
+				orgID:    30,
+				otherOrg: 45,
 			},
 		},
 	}
@@ -49,6 +51,12 @@ func TestRateLimitSliderConfig(t *testing.T) {
 	}
 	if got.OrgOverrides[orgID] != 30 {
 		t.Fatalf("org override = %d, want 30", got.OrgOverrides[orgID])
+	}
+	if got.OrgOverrides[otherOrg] != 45 {
+		t.Fatalf("other org override = %d, want 45", got.OrgOverrides[otherOrg])
+	}
+	if len(got.OrgOverrides) != 2 {
+		t.Fatalf("overrides: %+v", got.OrgOverrides)
 	}
 }
 
@@ -292,7 +300,7 @@ func TestRun_StopsOnSignal(t *testing.T) {
 	done := make(chan int, 1)
 	go func() { done <- runBootstrap(nil, sigCh) }()
 
-	time.Sleep(200 * time.Millisecond)
+	waitForTCP(t, net.JoinHostPort("127.0.0.1", portStr))
 	sigCh <- syscall.SIGTERM
 
 	select {
@@ -343,4 +351,17 @@ func TestRunWithShutdown_StopsOnSignal(t *testing.T) {
 	case <-time.After(5 * time.Second):
 		t.Fatal("timed out waiting for shutdown")
 	}
+}
+
+func waitForTCP(t *testing.T, addr string) {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		conn, err := net.DialTimeout("tcp", addr, 50*time.Millisecond)
+		if err == nil {
+			_ = conn.Close()
+			return
+		}
+	}
+	t.Fatalf("timeout waiting for %s", addr)
 }

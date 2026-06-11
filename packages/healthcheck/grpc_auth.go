@@ -16,9 +16,12 @@ const probeToken = "ibex_health_probe_invalid"
 const defaultGRPCProbeTimeout = 500 * time.Millisecond
 
 var (
+	// ErrAuthGRPCClientNotConfigured is returned when the auth gRPC client was not wired.
 	ErrAuthGRPCClientNotConfigured = errors.New("auth grpc client not configured")
-	ErrAuthGRPCReadinessTimeout    = errors.New("auth grpc readiness check timed out")
-	ErrAuthGRPCUnreachable         = errors.New("auth grpc unreachable")
+	// ErrAuthGRPCReadinessTimeout is returned when ValidateToken does not respond in time.
+	ErrAuthGRPCReadinessTimeout = errors.New("auth grpc readiness check timed out")
+	// ErrAuthGRPCUnreachable is returned for transport or unknown gRPC failures during probe.
+	ErrAuthGRPCUnreachable = errors.New("auth grpc unreachable")
 )
 
 // AuthGRPC returns a checker that calls ValidateToken with a sentinel invalid token.

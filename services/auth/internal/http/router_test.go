@@ -41,6 +41,35 @@ func TestHealthReturnsOK(t *testing.T) {
 	}
 }
 
+func TestMetricsEndpoint(t *testing.T) {
+	t.Parallel()
+	router := NewRouter(logger.Discard("auth"), metrics.NewAuth(metrics.AuthConfig{ServiceName: "test"}), telemetry.NoopTracer("auth"), testHealthServer())
+
+	req := httptest.NewRequest(http.MethodGet, "/metrics", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rec.Code)
+	}
+	if !strings.Contains(rec.Header().Get("Content-Type"), "text/plain") {
+		t.Fatalf("content-type: %s", rec.Header().Get("Content-Type"))
+	}
+}
+
+func TestHealthMethodNotAllowed(t *testing.T) {
+	t.Parallel()
+	router := NewRouter(logger.Discard("auth"), metrics.NewAuth(metrics.AuthConfig{ServiceName: "test"}), telemetry.NoopTracer("auth"), testHealthServer())
+
+	req := httptest.NewRequest(http.MethodPost, "/health", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("expected 405, got %d", rec.Code)
+	}
+}
+
 func TestReadyPostgresNotConfigured(t *testing.T) {
 	t.Parallel()
 	router := NewRouter(logger.Discard("auth"), metrics.NewAuth(metrics.AuthConfig{ServiceName: "test"}), telemetry.NoopTracer("auth"), testHealthServer())
