@@ -73,10 +73,3 @@ func authListMessageCases(now *timestamppb.Timestamp) []authMessageCase {
 		{name: "ListTokensResponse", msg: &authv1.ListTokensResponse{Tokens: []*authv1.TokenMetadata{meta}, NextCursor: "next-cursor"}},
 	}
 }
-
-func authMessageTestCases(now *timestamppb.Timestamp) []authMessageCase {
-	out := authValidateMessageCases(now)
-	out = append(out, authTokenMessageCases(now)...)
-	out = append(out, authListMessageCases(now)...)
-	return out
-}
