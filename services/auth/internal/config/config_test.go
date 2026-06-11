@@ -25,7 +25,7 @@ func TestValidate_rejectsInvalidConfig(t *testing.T) {
 		mutate func(*Config)
 	}{
 		{
-			name: "invalid port",
+			name:   "invalid port",
 			mutate: func(c *Config) { c.Port = "70000" },
 		},
 		{
@@ -35,11 +35,11 @@ func TestValidate_rejectsInvalidConfig(t *testing.T) {
 			},
 		},
 		{
-			name: "missing postgres dsn",
+			name:   "missing postgres dsn",
 			mutate: func(c *Config) { c.PostgresDSN = "" },
 		},
 		{
-			name: "empty service name",
+			name:   "empty service name",
 			mutate: func(c *Config) { c.ServiceName = "" },
 		},
 	}

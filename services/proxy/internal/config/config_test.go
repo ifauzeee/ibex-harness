@@ -66,7 +66,7 @@ func TestValidate_rejectsInvalidConfig(t *testing.T) {
 	orgID := uuid.MustParse("550e8400-e29b-41d4-a716-446655440000")
 
 	tests := []struct {
-		name string
+		name   string
 		mutate func(*Config)
 	}{
 		{
@@ -78,27 +78,27 @@ func TestValidate_rejectsInvalidConfig(t *testing.T) {
 			},
 		},
 		{
-			name: "invalid port",
+			name:   "invalid port",
 			mutate: func(c *Config) { c.Port = "not-a-port" },
 		},
 		{
-			name: "zero port",
+			name:   "zero port",
 			mutate: func(c *Config) { c.Port = "0" },
 		},
 		{
-			name: "port too large",
+			name:   "port too large",
 			mutate: func(c *Config) { c.Port = "70000" },
 		},
 		{
-			name: "empty service name",
+			name:   "empty service name",
 			mutate: func(c *Config) { c.ServiceName = "  " },
 		},
 		{
-			name: "invalid auth grpc addr",
+			name:   "invalid auth grpc addr",
 			mutate: func(c *Config) { c.AuthGRPCAddr = "not-host-port" },
 		},
 		{
-			name: "zero rate limit rpm",
+			name:   "zero rate limit rpm",
 			mutate: func(c *Config) { c.RateLimit.DefaultRPM = 0 },
 		},
 		{
@@ -109,15 +109,15 @@ func TestValidate_rejectsInvalidConfig(t *testing.T) {
 			},
 		},
 		{
-			name: "empty trace id header",
+			name:   "empty trace id header",
 			mutate: func(c *Config) { c.TraceIDHeader = "" },
 		},
 		{
-			name: "zero max body bytes",
+			name:   "zero max body bytes",
 			mutate: func(c *Config) { c.MaxRequestBodyBytes = 0 },
 		},
 		{
-			name: "empty request id header",
+			name:   "empty request id header",
 			mutate: func(c *Config) { c.RequestIDHeader = "" },
 		},
 		{
@@ -220,4 +220,3 @@ func TestParseOrgRPMOverrides_invalid(t *testing.T) {
 		t.Fatal("expected error for zero rpm")
 	}
 }
-
