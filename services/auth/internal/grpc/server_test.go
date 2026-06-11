@@ -78,6 +78,17 @@ func adminCtx(t *testing.T, orgID string) context.Context {
 	})
 }
 
+func revokeTokenRequest(orgID, tokenID string) *authv1.RevokeTokenRequest {
+	return &authv1.RevokeTokenRequest{OrgId: orgID, TokenId: tokenID}
+}
+
+func assertGRPCCode(t *testing.T, err error, want codes.Code) {
+	t.Helper()
+	if status.Code(err) != want {
+		t.Fatalf("code: got %v want %v err=%v", status.Code(err), want, err)
+	}
+}
+
 func TestServer_ValidateToken(t *testing.T) {
 	t.Parallel()
 
@@ -204,106 +215,117 @@ func TestServer_CreateToken(t *testing.T) {
 	}
 }
 
-func TestServer_RevokeToken(t *testing.T) {
+type revokeTokenCase struct {
+	name     string
+	ctx      context.Context
+	req      *authv1.RevokeTokenRequest
+	repo     *fakeTokenRepo
+	wantCode codes.Code
+}
+
+func runRevokeTokenCase(t *testing.T, tc revokeTokenCase) {
+	t.Helper()
+
+	repo := tc.repo
+	if repo == nil {
+		repo = &fakeTokenRepo{}
+	}
+	s := newTestServer(&fakeTokenValidator{}, repo, &fakeAgentsStore{})
+
+	_, err := s.RevokeToken(tc.ctx, tc.req)
+	if tc.wantCode == codes.OK {
+		if err != nil {
+			t.Fatalf("RevokeToken: %v", err)
+		}
+		return
+	}
+	assertGRPCCode(t, err, tc.wantCode)
+}
+
+func TestServer_RevokeToken_unauthenticated(t *testing.T) {
 	t.Parallel()
+	orgID, tokenID := uuid.NewString(), uuid.NewString()
+	runRevokeTokenCase(t, revokeTokenCase{
+		name: "unauthenticated", ctx: context.Background(),
+		req: revokeTokenRequest(orgID, tokenID), wantCode: codes.Unauthenticated,
+	})
+}
 
-	orgID := uuid.NewString()
-	tokenID := uuid.NewString()
-	selfTokenID := uuid.NewString()
+func TestServer_RevokeToken_crossTenant(t *testing.T) {
+	t.Parallel()
+	orgID, tokenID := uuid.NewString(), uuid.NewString()
+	runRevokeTokenCase(t, revokeTokenCase{
+		name: "cross tenant not found",
+		ctx: ContextWithCaller(context.Background(), CallerContext{
+			OrgID: uuid.NewString(), Permissions: permissions.Admin,
+		}),
+		req: revokeTokenRequest(orgID, tokenID), wantCode: codes.NotFound,
+	})
+}
 
-	tests := []struct {
-		name     string
-		ctx      context.Context
-		req      *authv1.RevokeTokenRequest
-		repo     *fakeTokenRepo
-		wantCode codes.Code
-	}{
-		{
-			name:     "unauthenticated",
-			ctx:      context.Background(),
-			req:      &authv1.RevokeTokenRequest{OrgId: orgID, TokenId: tokenID},
-			wantCode: codes.Unauthenticated,
-		},
-		{
-			name: "cross tenant not found",
-			ctx: ContextWithCaller(context.Background(), CallerContext{
-				OrgID: uuid.NewString(), Permissions: permissions.Admin,
-			}),
-			req:      &authv1.RevokeTokenRequest{OrgId: orgID, TokenId: tokenID},
-			wantCode: codes.NotFound,
-		},
-		{
-			name: "permission denied",
-			ctx: ContextWithCaller(context.Background(), CallerContext{
-				OrgID: orgID, TokenID: uuid.NewString(), Permissions: permissions.ReadOnly,
-			}),
-			req:      &authv1.RevokeTokenRequest{OrgId: orgID, TokenId: tokenID},
-			wantCode: codes.PermissionDenied,
-		},
-		{
-			name: "not found in repo",
-			ctx:  adminCtx(t, orgID),
-			req:  &authv1.RevokeTokenRequest{OrgId: orgID, TokenId: tokenID},
-			repo: &fakeTokenRepo{
-				revokeFn: func(context.Context, string, string, string, *string) error {
-					return repository.ErrNotFound
-				},
+func TestServer_RevokeToken_permissionDenied(t *testing.T) {
+	t.Parallel()
+	orgID, tokenID := uuid.NewString(), uuid.NewString()
+	runRevokeTokenCase(t, revokeTokenCase{
+		name: "permission denied",
+		ctx: ContextWithCaller(context.Background(), CallerContext{
+			OrgID: orgID, TokenID: uuid.NewString(), Permissions: permissions.ReadOnly,
+		}),
+		req: revokeTokenRequest(orgID, tokenID), wantCode: codes.PermissionDenied,
+	})
+}
+
+func TestServer_RevokeToken_notFound(t *testing.T) {
+	t.Parallel()
+	orgID, tokenID := uuid.NewString(), uuid.NewString()
+	runRevokeTokenCase(t, revokeTokenCase{
+		name: "not found in repo", ctx: adminCtx(t, orgID),
+		req: revokeTokenRequest(orgID, tokenID),
+		repo: &fakeTokenRepo{
+			revokeFn: func(context.Context, string, string, string, *string) error {
+				return repository.ErrNotFound
 			},
-			wantCode: codes.NotFound,
 		},
-		{
-			name: "internal error",
-			ctx:  adminCtx(t, orgID),
-			req:  &authv1.RevokeTokenRequest{OrgId: orgID, TokenId: tokenID},
-			repo: &fakeTokenRepo{
-				revokeFn: func(context.Context, string, string, string, *string) error {
-					return errors.New("db down")
-				},
+		wantCode: codes.NotFound,
+	})
+}
+
+func TestServer_RevokeToken_internalError(t *testing.T) {
+	t.Parallel()
+	orgID, tokenID := uuid.NewString(), uuid.NewString()
+	runRevokeTokenCase(t, revokeTokenCase{
+		name: "internal error", ctx: adminCtx(t, orgID),
+		req: revokeTokenRequest(orgID, tokenID),
+		repo: &fakeTokenRepo{
+			revokeFn: func(context.Context, string, string, string, *string) error {
+				return errors.New("db down")
 			},
-			wantCode: codes.Internal,
 		},
-		{
-			name: "self revoke ok",
-			ctx: ContextWithCaller(context.Background(), CallerContext{
-				OrgID: orgID, TokenID: selfTokenID, Permissions: permissions.ReadOnly,
-			}),
-			req:      &authv1.RevokeTokenRequest{OrgId: orgID, TokenId: selfTokenID},
-			repo:     &fakeTokenRepo{},
-			wantCode: codes.OK,
-		},
-		{
-			name:     "admin revoke ok",
-			ctx:      adminCtx(t, orgID),
-			req:      &authv1.RevokeTokenRequest{OrgId: orgID, TokenId: tokenID},
-			repo:     &fakeTokenRepo{},
-			wantCode: codes.OK,
-		},
-	}
+		wantCode: codes.Internal,
+	})
+}
 
-	for _, tc := range tests {
-		tc := tc
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
+func TestServer_RevokeToken_selfRevoke(t *testing.T) {
+	t.Parallel()
+	orgID, selfTokenID := uuid.NewString(), uuid.NewString()
+	runRevokeTokenCase(t, revokeTokenCase{
+		name: "self revoke ok",
+		ctx: ContextWithCaller(context.Background(), CallerContext{
+			OrgID: orgID, TokenID: selfTokenID, Permissions: permissions.ReadOnly,
+		}),
+		req: revokeTokenRequest(orgID, selfTokenID), repo: &fakeTokenRepo{},
+		wantCode: codes.OK,
+	})
+}
 
-			repo := tc.repo
-			if repo == nil {
-				repo = &fakeTokenRepo{}
-			}
-			s := newTestServer(&fakeTokenValidator{}, repo, &fakeAgentsStore{})
-
-			_, err := s.RevokeToken(tc.ctx, tc.req)
-
-			if tc.wantCode == codes.OK {
-				if err != nil {
-					t.Fatalf("RevokeToken: %v", err)
-				}
-				return
-			}
-			if status.Code(err) != tc.wantCode {
-				t.Fatalf("code: got %v want %v err=%v", status.Code(err), tc.wantCode, err)
-			}
-		})
-	}
+func TestServer_RevokeToken_adminRevoke(t *testing.T) {
+	t.Parallel()
+	orgID, tokenID := uuid.NewString(), uuid.NewString()
+	runRevokeTokenCase(t, revokeTokenCase{
+		name: "admin revoke ok", ctx: adminCtx(t, orgID),
+		req: revokeTokenRequest(orgID, tokenID), repo: &fakeTokenRepo{},
+		wantCode: codes.OK,
+	})
 }
 
 func TestServer_ListTokens(t *testing.T) {

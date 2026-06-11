@@ -52,12 +52,17 @@ type nestedConfig struct {
 	Secret config.Secret `env:"NESTED_SECRET" secret:"true"`
 }
 
-func TestLogDebug_redactsSecretsAndNestedStructs(t *testing.T) {
+func withDebugLogger(t *testing.T, logFn func(), assertFn func(out string)) {
+	t.Helper()
 	var buf strings.Builder
 	old := slog.Default()
 	slog.SetDefault(slog.New(slog.NewJSONHandler(&buf, &slog.HandlerOptions{Level: slog.LevelDebug})))
 	t.Cleanup(func() { slog.SetDefault(old) })
+	logFn()
+	assertFn(buf.String())
+}
 
+func TestLogDebug_redactsSecretsAndNestedStructs(t *testing.T) {
 	type debugCfg struct {
 		Visible string        `env:"DBG_VISIBLE"`
 		Secret  config.Secret `env:"DBG_SECRET" secret:"true"`
@@ -71,73 +76,57 @@ func TestLogDebug_redactsSecretsAndNestedStructs(t *testing.T) {
 		Ptr:     &nestedConfig{Host: "cache.internal", Secret: config.Secret("ptr-secret")},
 	}
 
-	config.LogDebug(cfg)
-	out := buf.String()
-	if !strings.Contains(out, "shown") {
-		t.Fatalf("expected visible value in log: %s", out)
-	}
-	for _, secret := range []string{"top-secret", "nested-secret", "ptr-secret"} {
-		if strings.Contains(out, secret) {
-			t.Fatalf("secret leaked in log: %s", out)
+	withDebugLogger(t, func() { config.LogDebug(cfg) }, func(out string) {
+		if !strings.Contains(out, "shown") {
+			t.Fatalf("expected visible value in log: %s", out)
 		}
-	}
-	if !strings.Contains(out, "[REDACTED]") {
-		t.Fatalf("expected redaction marker: %s", out)
-	}
+		for _, secret := range []string{"top-secret", "nested-secret", "ptr-secret"} {
+			if strings.Contains(out, secret) {
+				t.Fatalf("secret leaked in log: %s", out)
+			}
+		}
+		if !strings.Contains(out, "[REDACTED]") {
+			t.Fatalf("expected redaction marker: %s", out)
+		}
+	})
 }
 
 func TestLogDebug_redactsNonStructValue(t *testing.T) {
-	var buf strings.Builder
-	old := slog.Default()
-	slog.SetDefault(slog.New(slog.NewJSONHandler(&buf, &slog.HandlerOptions{Level: slog.LevelDebug})))
-	t.Cleanup(func() { slog.SetDefault(old) })
-
-	config.LogDebug("plain-string")
-	if !strings.Contains(buf.String(), "plain-string") {
-		t.Fatalf("log: %s", buf.String())
-	}
+	withDebugLogger(t, func() { config.LogDebug("plain-string") }, func(out string) {
+		if !strings.Contains(out, "plain-string") {
+			t.Fatalf("log: %s", out)
+		}
+	})
 }
 
 func TestLogDebug_typedNilPointer(t *testing.T) {
-	var buf strings.Builder
-	old := slog.Default()
-	slog.SetDefault(slog.New(slog.NewJSONHandler(&buf, &slog.HandlerOptions{Level: slog.LevelDebug})))
-	t.Cleanup(func() { slog.SetDefault(old) })
-
-	config.LogDebug((*nestedConfig)(nil))
-	if buf.String() == "" {
-		t.Fatal("expected log output for typed nil pointer")
-	}
+	withDebugLogger(t, func() { config.LogDebug((*nestedConfig)(nil)) }, func(out string) {
+		if out == "" {
+			t.Fatal("expected log output for typed nil pointer")
+		}
+	})
 }
 
 func TestLogDebug_nilNestedPointer(t *testing.T) {
-	var buf strings.Builder
-	old := slog.Default()
-	slog.SetDefault(slog.New(slog.NewJSONHandler(&buf, &slog.HandlerOptions{Level: slog.LevelDebug})))
-	t.Cleanup(func() { slog.SetDefault(old) })
-
 	type wrap struct {
 		Ptr *nestedConfig
 	}
-	config.LogDebug(wrap{Ptr: nil})
-	if buf.String() == "" {
-		t.Fatal("expected log output")
-	}
+	withDebugLogger(t, func() { config.LogDebug(wrap{Ptr: nil}) }, func(out string) {
+		if out == "" {
+			t.Fatal("expected log output")
+		}
+	})
 }
 
 func TestLogDebug_usesFieldNameWhenNoEnvTag(t *testing.T) {
-	var buf strings.Builder
-	old := slog.Default()
-	slog.SetDefault(slog.New(slog.NewJSONHandler(&buf, &slog.HandlerOptions{Level: slog.LevelDebug})))
-	t.Cleanup(func() { slog.SetDefault(old) })
-
 	type noTag struct {
 		PlainField string
 	}
-	config.LogDebug(noTag{PlainField: "visible"})
-	if !strings.Contains(buf.String(), "PlainField") {
-		t.Fatalf("log: %s", buf.String())
-	}
+	withDebugLogger(t, func() { config.LogDebug(noTag{PlainField: "visible"}) }, func(out string) {
+		if !strings.Contains(out, "PlainField") {
+			t.Fatalf("log: %s", out)
+		}
+	})
 }
 
 func TestMustLoad_exitsOnError(t *testing.T) {
