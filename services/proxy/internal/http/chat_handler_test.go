@@ -83,142 +83,102 @@ func defaultChatValidator() *chatMockValidator {
 	}}
 }
 
-func TestChatCompletions_validJSON_returns501(t *testing.T) {
+func TestChatCompletions(t *testing.T) {
 	t.Parallel()
 
-	handler := chatTestHandler(defaultChatValidator(), chatTestConfig())
-	rec := postChat(t, handler, chatRequestOpts{
-		body:    `{"model":"gpt-4","messages":[{"role":"user","content":"hi"}]}`,
-		auth:    true,
-		agentID: testChatAgentID,
-	})
-
-	if rec.Code != http.StatusNotImplemented {
-		t.Fatalf("status: %d body=%s", rec.Code, rec.Body.String())
+	tests := []struct {
+		name       string
+		validator  auth.TokenValidator
+		cfg        config.Config
+		req        chatRequestOpts
+		wantStatus int
+		wantBody   string
+	}{
+		{
+			name: "valid JSON returns 501", validator: defaultChatValidator(), cfg: chatTestConfig(),
+			req: chatRequestOpts{
+				body: `{"model":"gpt-4","messages":[{"role":"user","content":"hi"}]}`,
+				auth: true, agentID: testChatAgentID,
+			},
+			wantStatus: http.StatusNotImplemented,
+			wantBody:   string(apierror.CodeProviderNotConfigured),
+		},
+		{
+			name: "invalid JSON returns 400", validator: defaultChatValidator(), cfg: chatTestConfig(),
+			req:        chatRequestOpts{body: `{bad`, auth: true, agentID: testChatAgentID},
+			wantStatus: http.StatusBadRequest,
+			wantBody:   string(apierror.CodeInvalidJSON),
+		},
+		{
+			name: "no auth returns 401", validator: defaultChatValidator(), cfg: chatTestConfig(),
+			req:        chatRequestOpts{body: `{}`},
+			wantStatus: http.StatusUnauthorized,
+		},
+		{
+			name: "missing agent ID returns 400", validator: defaultChatValidator(), cfg: chatTestConfig(),
+			req: chatRequestOpts{
+				body: `{"model":"gpt-4","messages":[{"role":"user","content":"hi"}]}`,
+				auth: true,
+			},
+			wantStatus: http.StatusBadRequest,
+			wantBody:   string(apierror.CodeMissingAgentID),
+		},
+		{
+			name: "empty messages returns 400", validator: defaultChatValidator(), cfg: chatTestConfig(),
+			req:        chatRequestOpts{body: `{"model":"m","messages":[]}`, auth: true, agentID: testChatAgentID},
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name: "unsupported media type returns 415", validator: defaultChatValidator(), cfg: chatTestConfig(),
+			req: chatRequestOpts{
+				body: `{"model":"gpt-4","messages":[{"role":"user","content":"hi"}]}`,
+				auth: true, contentType: "text/plain", agentID: testChatAgentID,
+			},
+			wantStatus: http.StatusUnsupportedMediaType,
+			wantBody:   string(apierror.CodeUnsupportedMediaType),
+		},
+		{
+			name: "method not allowed returns 405", validator: defaultChatValidator(), cfg: chatTestConfig(),
+			req:        chatRequestOpts{method: http.MethodGet, auth: true, agentID: testChatAgentID},
+			wantStatus: http.StatusMethodNotAllowed,
+		},
+		{
+			name: "body too large returns 413", validator: defaultChatValidator(),
+			cfg: func() config.Config {
+				c := chatTestConfig()
+				c.MaxRequestBodyBytes = 8
+				return c
+			}(),
+			req: chatRequestOpts{
+				body:    `{"model":"gpt-4","messages":[{"role":"user","content":"this body is definitely too large"}]}`,
+				auth:    true,
+				agentID: testChatAgentID,
+			},
+			wantStatus: http.StatusRequestEntityTooLarge,
+			wantBody:   string(apierror.CodePayloadTooLarge),
+		},
+		{
+			name: "validator error returns 503", validator: &chatMockValidator{err: auth.ErrAuthUnavailable},
+			cfg: chatTestConfig(),
+			req: chatRequestOpts{
+				body: `{"model":"m","messages":[]}`, auth: true, agentID: testChatAgentID,
+			},
+			wantStatus: http.StatusServiceUnavailable,
+		},
 	}
-	if !strings.Contains(rec.Body.String(), string(apierror.CodeProviderNotConfigured)) {
-		t.Fatalf("body: %s", rec.Body.String())
-	}
-}
 
-func TestChatCompletions_invalidJSON_returns400(t *testing.T) {
-	t.Parallel()
-
-	handler := chatTestHandler(defaultChatValidator(), chatTestConfig())
-	rec := postChat(t, handler, chatRequestOpts{
-		body: `{bad`, auth: true, agentID: testChatAgentID,
-	})
-
-	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("status: %d", rec.Code)
-	}
-	if !strings.Contains(rec.Body.String(), string(apierror.CodeInvalidJSON)) {
-		t.Fatalf("body: %s", rec.Body.String())
-	}
-}
-
-func TestChatCompletions_noAuth_returns401(t *testing.T) {
-	t.Parallel()
-
-	handler := chatTestHandler(defaultChatValidator(), chatTestConfig())
-	rec := postChat(t, handler, chatRequestOpts{body: `{}`})
-
-	if rec.Code != http.StatusUnauthorized {
-		t.Fatalf("status: %d", rec.Code)
-	}
-}
-
-func TestChatCompletions_missingAgentID_returns400(t *testing.T) {
-	t.Parallel()
-
-	handler := chatTestHandler(defaultChatValidator(), chatTestConfig())
-	rec := postChat(t, handler, chatRequestOpts{
-		body: `{"model":"gpt-4","messages":[{"role":"user","content":"hi"}]}`,
-		auth: true,
-	})
-
-	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("status: %d body=%s", rec.Code, rec.Body.String())
-	}
-	if !strings.Contains(rec.Body.String(), string(apierror.CodeMissingAgentID)) {
-		t.Fatalf("body: %s", rec.Body.String())
-	}
-}
-
-func TestChatCompletions_emptyMessages_returns400(t *testing.T) {
-	t.Parallel()
-
-	handler := chatTestHandler(defaultChatValidator(), chatTestConfig())
-	rec := postChat(t, handler, chatRequestOpts{
-		body: `{"model":"m","messages":[]}`, auth: true, agentID: testChatAgentID,
-	})
-
-	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("status: %d", rec.Code)
-	}
-}
-
-func TestChatCompletions_unsupportedMediaType_returns415(t *testing.T) {
-	t.Parallel()
-
-	handler := chatTestHandler(defaultChatValidator(), chatTestConfig())
-	rec := postChat(t, handler, chatRequestOpts{
-		body:        `{"model":"gpt-4","messages":[{"role":"user","content":"hi"}]}`,
-		auth:        true,
-		contentType: "text/plain",
-		agentID:     testChatAgentID,
-	})
-
-	if rec.Code != http.StatusUnsupportedMediaType {
-		t.Fatalf("status: %d body=%s", rec.Code, rec.Body.String())
-	}
-	if !strings.Contains(rec.Body.String(), string(apierror.CodeUnsupportedMediaType)) {
-		t.Fatalf("body: %s", rec.Body.String())
-	}
-}
-
-func TestChatCompletions_methodNotAllowed_returns405(t *testing.T) {
-	t.Parallel()
-
-	handler := chatTestHandler(defaultChatValidator(), chatTestConfig())
-	rec := postChat(t, handler, chatRequestOpts{
-		method: http.MethodGet, auth: true, agentID: testChatAgentID,
-	})
-
-	if rec.Code != http.StatusMethodNotAllowed {
-		t.Fatalf("status: %d body=%s", rec.Code, rec.Body.String())
-	}
-}
-
-func TestChatCompletions_bodyTooLarge_returns413(t *testing.T) {
-	t.Parallel()
-
-	cfg := chatTestConfig()
-	cfg.MaxRequestBodyBytes = 8
-	handler := chatTestHandler(defaultChatValidator(), cfg)
-	rec := postChat(t, handler, chatRequestOpts{
-		body:    `{"model":"gpt-4","messages":[{"role":"user","content":"this body is definitely too large"}]}`,
-		auth:    true,
-		agentID: testChatAgentID,
-	})
-
-	if rec.Code != http.StatusRequestEntityTooLarge {
-		t.Fatalf("status: %d body=%s", rec.Code, rec.Body.String())
-	}
-	if !strings.Contains(rec.Body.String(), string(apierror.CodePayloadTooLarge)) {
-		t.Fatalf("body: %s", rec.Body.String())
-	}
-}
-
-func TestChatCompletions_validatorError_returns503(t *testing.T) {
-	t.Parallel()
-
-	handler := chatTestHandler(&chatMockValidator{err: auth.ErrAuthUnavailable}, chatTestConfig())
-	rec := postChat(t, handler, chatRequestOpts{
-		body: `{"model":"m","messages":[]}`, auth: true, agentID: testChatAgentID,
-	})
-
-	if rec.Code != http.StatusServiceUnavailable {
-		t.Fatalf("status: %d", rec.Code)
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			handler := chatTestHandler(tc.validator, tc.cfg)
+			rec := postChat(t, handler, tc.req)
+			if rec.Code != tc.wantStatus {
+				t.Fatalf("status: %d body=%s", rec.Code, rec.Body.String())
+			}
+			if tc.wantBody != "" && !strings.Contains(rec.Body.String(), tc.wantBody) {
+				t.Fatalf("body: %s", rec.Body.String())
+			}
+		})
 	}
 }

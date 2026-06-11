@@ -260,7 +260,8 @@ func TestRunWithShutdown_closesOptionalClients(t *testing.T) {
 	}, 0, func() { sigCh <- syscall.SIGTERM })
 }
 
-func TestRun_StopsOnSignal(t *testing.T) {
+func proxyBootstrapSmokeEnv(t *testing.T) (sigCh chan os.Signal, httpPort string) {
+	t.Helper()
 	mr := miniredis.RunT(t)
 	lis, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -286,7 +287,11 @@ func TestRun_StopsOnSignal(t *testing.T) {
 	t.Setenv("IBEX_AUTH_GRPC_ADDR", lis.Addr().String())
 	t.Setenv("IBEX_PORT", portStr)
 
-	sigCh := make(chan os.Signal, 1)
+	return make(chan os.Signal, 1), portStr
+}
+
+func TestRun_StopsOnSignal(t *testing.T) {
+	sigCh, portStr := proxyBootstrapSmokeEnv(t)
 	done := make(chan int, 1)
 	go func() { done <- runBootstrap(nil, sigCh) }()
 

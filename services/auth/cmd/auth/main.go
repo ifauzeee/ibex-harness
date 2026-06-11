@@ -118,6 +118,19 @@ type shutdownOpts struct {
 
 func runWithShutdown(opts shutdownOpts) int {
 	errCh := make(chan error, 2)
+	startAuthGRPCServer(opts, errCh)
+	startAuthHTTPServer(opts, errCh)
+
+	sd := newAuthShutdownCoordinator(opts)
+	registerAuthShutdownHooks(sd, opts)
+
+	shutdownErrCh := make(chan error, 1)
+	go func() { shutdownErrCh <- sd.Wait() }()
+
+	return awaitAuthShutdown(errCh, shutdownErrCh, opts.logger)
+}
+
+func startAuthGRPCServer(opts shutdownOpts, errCh chan<- error) {
 	go func() {
 		opts.logger.InfoCtx(context.Background(), "grpc starting", "port", opts.cfg.GRPCPort)
 		if err := opts.grpcSrv.Serve(opts.grpcLis); err != nil {
@@ -126,6 +139,9 @@ func runWithShutdown(opts shutdownOpts) int {
 		}
 		errCh <- nil
 	}()
+}
+
+func startAuthHTTPServer(opts shutdownOpts, errCh chan<- error) {
 	go func() {
 		opts.logger.InfoCtx(context.Background(), "http starting", "port", opts.cfg.Port, "env", opts.cfg.Environment)
 		if err := opts.httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
@@ -134,31 +150,27 @@ func runWithShutdown(opts shutdownOpts) int {
 		}
 		errCh <- nil
 	}()
+}
 
-	var sd *shutdown.Coordinator
+func newAuthShutdownCoordinator(opts shutdownOpts) *shutdown.Coordinator {
 	if opts.signalCh != nil {
-		sd = shutdown.NewWithSignalChan(opts.cfg.ShutdownTimeout, opts.logger, opts.signalCh)
-	} else {
-		sd = shutdown.New(opts.cfg.ShutdownTimeout, opts.logger)
+		return shutdown.NewWithSignalChan(opts.cfg.ShutdownTimeout, opts.logger, opts.signalCh)
 	}
-	registerAuthShutdownHooks(sd, opts)
+	return shutdown.New(opts.cfg.ShutdownTimeout, opts.logger)
+}
 
-	shutdownErrCh := make(chan error, 1)
-	go func() {
-		shutdownErrCh <- sd.Wait()
-	}()
-
+func awaitAuthShutdown(errCh, shutdownErrCh <-chan error, log *logger.Logger) int {
 	select {
 	case err := <-errCh:
 		if err != nil {
-			opts.logger.ErrorCtx(context.Background(), "server failed", "error", err)
+			log.ErrorCtx(context.Background(), "server failed", "error", err)
 			return 1
 		}
 	case err := <-shutdownErrCh:
 		if err != nil {
 			return 1
 		}
-		opts.logger.InfoCtx(context.Background(), "service stopped")
+		log.InfoCtx(context.Background(), "service stopped")
 	}
 	return 0
 }
