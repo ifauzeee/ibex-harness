@@ -3,7 +3,6 @@ package validation
 type uuidFieldCase struct {
 	name      string
 	value     string
-	field     string
 	wantNil   bool
 	wantCode  string
 	wantField string
