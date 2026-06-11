@@ -9,6 +9,8 @@ UNIT_OUT="${1:-coverage-go-unit.out}"
 INT_OUT="${2:-coverage-go-integration.out}"
 MERGED_OUT="${3:-coverage-go-merged.out}"
 
+INTEGRATION_RAN=false
+
 echo "==> Unit coverage"
 go test -count=1 -coverprofile="$UNIT_OUT" \
   ./packages/... ./services/auth/... ./services/proxy/...
@@ -24,12 +26,13 @@ else
   else
     go run github.com/wadey/gocovmerge@v0.0.0-20160331181800-b5bfa59ec0ad "$UNIT_OUT" "$INT_OUT" > "$MERGED_OUT"
   fi
+  INTEGRATION_RAN=true
   echo "Merged profile: $MERGED_OUT"
   go tool cover -func="$MERGED_OUT" | tail -1
 fi
 
 REPORT="${UNIT_OUT}"
-if [[ -f "${MERGED_OUT:-}" && "${MERGED_OUT}" -nt "${UNIT_OUT}" ]]; then
+if [[ "$INTEGRATION_RAN" == "true" && -f "$MERGED_OUT" ]]; then
   REPORT="$MERGED_OUT"
 fi
 
