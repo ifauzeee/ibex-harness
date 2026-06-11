@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	authv1 "github.com/Rick1330/ibex-harness/packages/proto/gen/go/ibex/auth/v1"
 	"github.com/Rick1330/ibex-harness/services/auth/internal/repository"
 	"github.com/Rick1330/ibex-harness/services/auth/internal/token"
 	"github.com/google/uuid"
@@ -25,6 +26,22 @@ type validatorRun struct {
 	agentID, userID string
 }
 
+func assertValidatorResponse(t *testing.T, resp *authv1.ValidateTokenResponse, agentID, userID string) {
+	t.Helper()
+	if resp.GetOrgId() == "" {
+		t.Fatalf("resp: %+v", resp)
+	}
+	if resp.GetPermissions() != 42 {
+		t.Fatalf("perms: %d", resp.GetPermissions())
+	}
+	if resp.GetAgentId() != agentID {
+		t.Fatal("agent id missing")
+	}
+	if resp.GetUserId() != userID {
+		t.Fatal("user id missing")
+	}
+}
+
 func runValidatorCase(t *testing.T, run validatorRun) {
 	t.Helper()
 	resp, err := token.NewValidator(run.tc.lookup, run.argon2).Validate(context.Background(), run.tc.token)
@@ -41,18 +58,7 @@ func runValidatorCase(t *testing.T, run validatorRun) {
 	if err != nil {
 		t.Fatalf("Validate: %v", err)
 	}
-	if resp.GetOrgId() == "" {
-		t.Fatalf("resp: %+v", resp)
-	}
-	if resp.GetPermissions() != 42 {
-		t.Fatalf("perms: %d", resp.GetPermissions())
-	}
-	if resp.GetAgentId() != run.agentID {
-		t.Fatal("agent id missing")
-	}
-	if resp.GetUserId() != run.userID {
-		t.Fatal("user id missing")
-	}
+	assertValidatorResponse(t, resp, run.agentID, run.userID)
 }
 
 type fakeLookup struct {

@@ -9,24 +9,19 @@ import (
 	"testing"
 )
 
-func invokeHandler(t *testing.T, handler http.HandlerFunc, method, path string) (int, Response) {
-	t.Helper()
-	req := httptest.NewRequest(method, path, nil)
-	rec := httptest.NewRecorder()
-	handler(rec, req)
-	var body Response
-	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
-		t.Fatalf("decode: %v", err)
-	}
-	return rec.Code, body
-}
-
 func TestHealthHandler_AlwaysOK(t *testing.T) {
 	t.Parallel()
 	srv := &Server{}
-	code, body := invokeHandler(t, srv.HealthHandler(), http.MethodGet, "/health")
-	if code != http.StatusOK {
-		t.Fatalf("expected 200, got %d", code)
+	req := httptest.NewRequest(http.MethodGet, "/health", nil)
+	rec := httptest.NewRecorder()
+	srv.HealthHandler()(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rec.Code)
+	}
+	var body Response
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode: %v", err)
 	}
 	if body.Status != statusOK || len(body.Checks) != 0 {
 		t.Fatalf("unexpected body: %+v", body)
@@ -41,9 +36,16 @@ func TestReadyHandler_AllCriticalOK(t *testing.T) {
 			"b": func(ctx context.Context) error { return nil },
 		},
 	}
-	code, body := invokeHandler(t, srv.ReadyHandler(), http.MethodGet, "/ready")
-	if code != http.StatusOK {
-		t.Fatalf("expected 200, got %d", code)
+	req := httptest.NewRequest(http.MethodGet, "/ready", nil)
+	rec := httptest.NewRecorder()
+	srv.ReadyHandler()(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rec.Code)
+	}
+	var body Response
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode: %v", err)
 	}
 	if body.Status != statusOK {
 		t.Fatalf("expected ok status, got %s", body.Status)
@@ -61,9 +63,16 @@ func TestReadyHandler_CriticalFailure(t *testing.T) {
 			"redis":    func(ctx context.Context) error { return nil },
 		},
 	}
-	code, body := invokeHandler(t, srv.ReadyHandler(), http.MethodGet, "/ready")
-	if code != http.StatusServiceUnavailable {
-		t.Fatalf("expected 503, got %d", code)
+	req := httptest.NewRequest(http.MethodGet, "/ready", nil)
+	rec := httptest.NewRecorder()
+	srv.ReadyHandler()(rec, req)
+
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Fatalf("expected 503, got %d", rec.Code)
+	}
+	var body Response
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode: %v", err)
 	}
 	if body.Status != statusUnhealthy {
 		t.Fatalf("expected unhealthy, got %s", body.Status)
@@ -73,34 +82,28 @@ func TestReadyHandler_CriticalFailure(t *testing.T) {
 	}
 }
 
-func assertMethodNotAllowed(t *testing.T, rec *httptest.ResponseRecorder, wantAllow bool) {
-	t.Helper()
-	if rec.Code != http.StatusMethodNotAllowed {
-		t.Fatalf("expected 405, got %d", rec.Code)
-	}
-	if wantAllow && rec.Header().Get("Allow") != http.MethodGet {
-		t.Fatalf("Allow header: %q", rec.Header().Get("Allow"))
-	}
-}
-
-func runRejectNonGET(t *testing.T, handler http.HandlerFunc, method string, wantAllow bool) {
-	t.Helper()
-	rec := httptest.NewRecorder()
-	handler(rec, httptest.NewRequest(method, "/health", nil))
-	assertMethodNotAllowed(t, rec, wantAllow)
-}
-
 func TestReadyHandler_rejectsNonGET(t *testing.T) {
 	t.Parallel()
 	srv := &Server{CriticalCheckers: map[string]Checker{
 		"a": func(ctx context.Context) error { return nil },
 	}}
-	runRejectNonGET(t, srv.ReadyHandler(), http.MethodPost, true)
+	rec := httptest.NewRecorder()
+	srv.ReadyHandler()(rec, httptest.NewRequest(http.MethodPost, "/ready", nil))
+	if rec.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("expected 405, got %d", rec.Code)
+	}
+	if rec.Header().Get("Allow") != http.MethodGet {
+		t.Fatalf("Allow header: %q", rec.Header().Get("Allow"))
+	}
 }
 
 func TestHealthHandler_rejectsNonGET(t *testing.T) {
 	t.Parallel()
-	runRejectNonGET(t, (&Server{}).HealthHandler(), http.MethodPut, false)
+	rec := httptest.NewRecorder()
+	(&Server{}).HealthHandler()(rec, httptest.NewRequest(http.MethodPut, "/health", nil))
+	if rec.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("expected 405, got %d", rec.Code)
+	}
 }
 
 func TestReadyHandler_customTimeouts(t *testing.T) {
@@ -135,9 +138,16 @@ func TestReadyHandler_AdvisoryFailure(t *testing.T) {
 			"llm": func(ctx context.Context) error { return errors.New("provider down") },
 		},
 	}
-	code, body := invokeHandler(t, srv.ReadyHandler(), http.MethodGet, "/ready")
-	if code != http.StatusOK {
-		t.Fatalf("expected 200, got %d", code)
+	req := httptest.NewRequest(http.MethodGet, "/ready", nil)
+	rec := httptest.NewRecorder()
+	srv.ReadyHandler()(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rec.Code)
+	}
+	var body Response
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode: %v", err)
 	}
 	if body.Status != statusDegraded {
 		t.Fatalf("expected degraded, got %s", body.Status)

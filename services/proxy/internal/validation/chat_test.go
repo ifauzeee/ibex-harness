@@ -4,8 +4,22 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Rick1330/ibex-harness/packages/apierror"
 	"github.com/Rick1330/ibex-harness/services/proxy/internal/llm"
 )
+
+func assertFieldError(t *testing.T, got []apierror.FieldError, field, code string) {
+	t.Helper()
+	if len(got) != 1 {
+		t.Fatalf("len: %d", len(got))
+	}
+	if got[0].Field != field {
+		t.Fatalf("field: %s", got[0].Field)
+	}
+	if got[0].Code != code {
+		t.Fatalf("code: %s", got[0].Code)
+	}
+}
 
 func TestValidateChatCompletionRequest(t *testing.T) {
 	t.Parallel()
@@ -105,16 +119,7 @@ func TestValidateChatCompletionRequest_modelTooLong(t *testing.T) {
 		Model:    strings.Repeat("m", MaxModelNameLength+1),
 		Messages: []llm.Message{{Role: "user", Content: "hi"}},
 	}
-	got := ValidateChatCompletionRequest(req)
-	if len(got) != 1 {
-		t.Fatalf("len: %d", len(got))
-	}
-	if got[0].Field != "model" {
-		t.Fatalf("field: %s", got[0].Field)
-	}
-	if got[0].Code != fieldCodeTooLong {
-		t.Fatalf("code: %s", got[0].Code)
-	}
+	assertFieldError(t, ValidateChatCompletionRequest(req), "model", fieldCodeTooLong)
 }
 
 func TestValidateChatCompletionRequest_tooManyMessages(t *testing.T) {
@@ -136,13 +141,10 @@ func TestValidateChatCompletionRequest_tooManyMessages(t *testing.T) {
 
 func TestValidateChatCompletionRequest_maxTokensTooHigh(t *testing.T) {
 	high := MaxChatMaxTokens + 1
-	got := ValidateChatCompletionRequest(&llm.ChatCompletionRequest{
+	assertFieldError(t, ValidateChatCompletionRequest(&llm.ChatCompletionRequest{
 		Model: "gpt-4", Messages: []llm.Message{{Role: "user", Content: "x"}},
 		MaxTokens: &high,
-	})
-	if len(got) != 1 || got[0].Field != "max_tokens" || got[0].Code != fieldCodeTooLong {
-		t.Fatalf("got %+v", got)
-	}
+	}), "max_tokens", fieldCodeTooLong)
 }
 
 func TestValidateChatCompletionRequest_emptyRole(t *testing.T) {
