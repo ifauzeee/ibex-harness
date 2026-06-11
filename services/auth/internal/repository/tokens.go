@@ -149,15 +149,23 @@ func (r *TokensRepository) CreateToken(ctx context.Context, p CreateTokenParams)
 	return id, err
 }
 
+// RevokeTokenInput scopes a revoke operation to one org token.
+type RevokeTokenInput struct {
+	OrgID     string
+	TokenID   string
+	RevokedBy string
+	Reason    *string
+}
+
 // RevokeToken marks a token revoked within org scope.
-func (r *TokensRepository) RevokeToken(ctx context.Context, orgID, tokenID, revokedBy string, reason *string) error {
+func (r *TokensRepository) RevokeToken(ctx context.Context, in RevokeTokenInput) error {
 	start := time.Now()
 	defer observeQuery(r.obs, "revoke_token", start)
 
 	return r.withServiceAccount(ctx, func(tx *sql.Tx) error {
 		var revokedByArg any
-		if revokedBy != "" {
-			revokedByArg = revokedBy
+		if in.RevokedBy != "" {
+			revokedByArg = in.RevokedBy
 		}
 		res, err := tx.ExecContext(ctx, `
 			UPDATE ibex_core.tokens
@@ -166,7 +174,7 @@ func (r *TokensRepository) RevokeToken(ctx context.Context, orgID, tokenID, revo
 			    revoked_by = $3::uuid,
 			    revoke_reason = $4
 			WHERE id = $1::uuid AND org_id = $2::uuid AND is_revoked = false`,
-			tokenID, orgID, revokedByArg, reason,
+			in.TokenID, in.OrgID, revokedByArg, in.Reason,
 		)
 		if err != nil {
 			return err

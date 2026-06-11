@@ -15,7 +15,7 @@ import (
 // tokenRepo persists token rows for TokenService.
 type tokenRepo interface {
 	CreateToken(ctx context.Context, p repository.CreateTokenParams) (string, error)
-	RevokeToken(ctx context.Context, orgID, tokenID, revokedBy string, reason *string) error
+	RevokeToken(ctx context.Context, in repository.RevokeTokenInput) error
 	ListTokens(ctx context.Context, orgID, cursor string, limit int) ([]repository.TokenMetadata, string, error)
 }
 
@@ -101,7 +101,9 @@ func (s *TokenService) CreateToken(ctx context.Context, req *authv1.CreateTokenR
 
 // RevokeToken revokes a token in org scope.
 func (s *TokenService) RevokeToken(ctx context.Context, orgID, tokenID, revokedBy string, reason *string) error {
-	err := s.repo.RevokeToken(ctx, orgID, tokenID, revokedBy, reason)
+	err := s.repo.RevokeToken(ctx, repository.RevokeTokenInput{
+		OrgID: orgID, TokenID: tokenID, RevokedBy: revokedBy, Reason: reason,
+	})
 	if err != nil {
 		return err
 	}

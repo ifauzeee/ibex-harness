@@ -83,7 +83,7 @@ func (errTokenRepo) CreateToken(context.Context, repository.CreateTokenParams) (
 	return "", fmt.Errorf("db down")
 }
 
-func (errTokenRepo) RevokeToken(context.Context, string, string, string, *string) error {
+func (errTokenRepo) RevokeToken(context.Context, repository.RevokeTokenInput) error {
 	return fmt.Errorf("db down")
 }
 

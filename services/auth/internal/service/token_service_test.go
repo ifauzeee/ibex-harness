@@ -21,7 +21,13 @@ func assertCreateTokenError(t *testing.T, err, want error) {
 
 func assertCreateTokenOK(t *testing.T, repo *memTokenRepo, result CreateTokenResult) {
 	t.Helper()
-	if result.TokenID == "" || result.Plaintext == "" || result.Prefix == "" {
+	if result.TokenID == "" {
+		t.Fatalf("incomplete result: %+v", result)
+	}
+	if result.Plaintext == "" {
+		t.Fatalf("incomplete result: %+v", result)
+	}
+	if result.Prefix == "" {
 		t.Fatalf("incomplete result: %+v", result)
 	}
 	if _, ok := repo.tokens[result.TokenID]; !ok {

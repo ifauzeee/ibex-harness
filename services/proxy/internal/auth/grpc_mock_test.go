@@ -2,6 +2,8 @@ package auth
 
 import (
 	"context"
+	"errors"
+	"testing"
 
 	authv1 "github.com/Rick1330/ibex-harness/packages/proto/gen/go/ibex/auth/v1"
 	"google.golang.org/grpc"
@@ -38,4 +40,11 @@ func (m *mockAuthServiceClient) RevokeToken(context.Context, *authv1.RevokeToken
 
 func (m *mockAuthServiceClient) ListTokens(context.Context, *authv1.ListTokensRequest, ...grpc.CallOption) (*authv1.ListTokensResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "not used")
+}
+
+func assertWantError(t *testing.T, err, want error) {
+	t.Helper()
+	if !errors.Is(err, want) {
+		t.Fatalf("err = %v, want %v", err, want)
+	}
 }

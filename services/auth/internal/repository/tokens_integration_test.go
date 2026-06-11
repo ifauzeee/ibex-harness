@@ -33,7 +33,7 @@ func TestTokensRepository_CreateToken(t *testing.T) {
 func TestTokensRepository_RevokeToken_ErrNotFound(t *testing.T) {
 	repo, db := setupTokensRepo(t)
 	orgID := testutil.SeedOrganization(t, db, "Revoke Org", "revoke-"+uuid.NewString()[:8])
-	err := repo.RevokeToken(context.Background(), orgID, uuid.NewString(), "", nil)
+	err := repo.RevokeToken(context.Background(), repository.RevokeTokenInput{OrgID: orgID, TokenID: uuid.NewString()})
 	if !errors.Is(err, repository.ErrNotFound) {
 		t.Fatalf("expected ErrNotFound, got %v", err)
 	}
@@ -53,7 +53,7 @@ func TestTokensRepository_RevokeToken_HappyPath(t *testing.T) {
 	if err != nil {
 		t.Fatalf("insert: %v", err)
 	}
-	if err = repo.RevokeToken(context.Background(), orgID, id, "", nil); err != nil {
+	if err = repo.RevokeToken(context.Background(), repository.RevokeTokenInput{OrgID: orgID, TokenID: id}); err != nil {
 		t.Fatalf("RevokeToken: %v", err)
 	}
 	_, err = repo.FindActiveByPrefix(context.Background(), prefix)

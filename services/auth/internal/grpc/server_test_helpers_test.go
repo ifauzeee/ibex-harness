@@ -23,16 +23,9 @@ func (f *fakeTokenValidator) Validate(ctx context.Context, accessToken string) (
 	return f.fn(ctx, accessToken)
 }
 
-type revokeTokenInput struct {
-	orgID     string
-	tokenID   string
-	revokedBy string
-	reason    *string
-}
-
 type fakeTokenRepo struct {
 	createFn func(context.Context, repository.CreateTokenParams) (string, error)
-	revokeFn func(context.Context, revokeTokenInput) error
+	revokeFn func(context.Context, repository.RevokeTokenInput) error
 	listFn   func(context.Context, string, string, int) ([]repository.TokenMetadata, string, error)
 }
 
@@ -43,11 +36,9 @@ func (f *fakeTokenRepo) CreateToken(ctx context.Context, p repository.CreateToke
 	return p.ID, nil
 }
 
-func (f *fakeTokenRepo) RevokeToken(ctx context.Context, orgID, tokenID, revokedBy string, reason *string) error {
+func (f *fakeTokenRepo) RevokeToken(ctx context.Context, in repository.RevokeTokenInput) error {
 	if f.revokeFn != nil {
-		return f.revokeFn(ctx, revokeTokenInput{
-			orgID: orgID, tokenID: tokenID, revokedBy: revokedBy, reason: reason,
-		})
+		return f.revokeFn(ctx, in)
 	}
 	return nil
 }
@@ -61,7 +52,7 @@ func (f *fakeTokenRepo) ListTokens(ctx context.Context, orgID, cursor string, li
 
 type serviceTokenRepo interface {
 	CreateToken(ctx context.Context, p repository.CreateTokenParams) (string, error)
-	RevokeToken(ctx context.Context, orgID, tokenID, revokedBy string, reason *string) error
+	RevokeToken(ctx context.Context, in repository.RevokeTokenInput) error
 	ListTokens(ctx context.Context, orgID, cursor string, limit int) ([]repository.TokenMetadata, string, error)
 }
 

@@ -83,45 +83,24 @@ func assertMethodNotAllowed(t *testing.T, rec *httptest.ResponseRecorder, wantAl
 	}
 }
 
-func rejectNonGETCases() []struct {
-	name      string
-	handler   func(*Server) http.HandlerFunc
-	method    string
-	wantAllow bool
-} {
-	return []struct {
-		name      string
-		handler   func(*Server) http.HandlerFunc
-		method    string
-		wantAllow bool
-	}{
-		{
-			name:    "ready rejects POST",
-			handler: func(s *Server) http.HandlerFunc { return s.ReadyHandler() },
-			method:  http.MethodPost, wantAllow: true,
-		},
-		{
-			name:    "health rejects PUT",
-			handler: func(s *Server) http.HandlerFunc { return s.HealthHandler() },
-			method:  http.MethodPut, wantAllow: false,
-		},
-	}
+func runRejectNonGET(t *testing.T, handler http.HandlerFunc, method string, wantAllow bool) {
+	t.Helper()
+	rec := httptest.NewRecorder()
+	handler(rec, httptest.NewRequest(method, "/health", nil))
+	assertMethodNotAllowed(t, rec, wantAllow)
 }
 
-func TestHandler_rejectsNonGET(t *testing.T) {
+func TestReadyHandler_rejectsNonGET(t *testing.T) {
 	t.Parallel()
-	for _, tc := range rejectNonGETCases() {
-		tc := tc
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-			srv := &Server{CriticalCheckers: map[string]Checker{
-				"a": func(ctx context.Context) error { return nil },
-			}}
-			rec := httptest.NewRecorder()
-			tc.handler(srv)(rec, httptest.NewRequest(tc.method, "/health", nil))
-			assertMethodNotAllowed(t, rec, tc.wantAllow)
-		})
-	}
+	srv := &Server{CriticalCheckers: map[string]Checker{
+		"a": func(ctx context.Context) error { return nil },
+	}}
+	runRejectNonGET(t, srv.ReadyHandler(), http.MethodPost, true)
+}
+
+func TestHealthHandler_rejectsNonGET(t *testing.T) {
+	t.Parallel()
+	runRejectNonGET(t, (&Server{}).HealthHandler(), http.MethodPut, false)
 }
 
 func TestReadyHandler_customTimeouts(t *testing.T) {

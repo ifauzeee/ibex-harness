@@ -38,7 +38,7 @@ func revokeTokenCases(t *testing.T) []revokeTokenCase {
 			name: "not found in repo", ctx: adminCtx(t, orgID),
 			req: revokeTokenRequest(orgID, tokenID),
 			repo: &fakeTokenRepo{
-				revokeFn: func(context.Context, revokeTokenInput) error {
+				revokeFn: func(context.Context, repository.RevokeTokenInput) error {
 					return repository.ErrNotFound
 				},
 			},
@@ -48,7 +48,7 @@ func revokeTokenCases(t *testing.T) []revokeTokenCase {
 			name: "internal error", ctx: adminCtx(t, orgID),
 			req: revokeTokenRequest(orgID, tokenID),
 			repo: &fakeTokenRepo{
-				revokeFn: func(context.Context, revokeTokenInput) error {
+				revokeFn: func(context.Context, repository.RevokeTokenInput) error {
 					return errors.New("db down")
 				},
 			},

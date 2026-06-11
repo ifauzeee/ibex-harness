@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	authv1 "github.com/Rick1330/ibex-harness/packages/proto/gen/go/ibex/auth/v1"
 	"github.com/Rick1330/ibex-harness/services/auth/internal/repository"
 	"github.com/Rick1330/ibex-harness/services/auth/internal/token"
 	"github.com/google/uuid"
@@ -20,24 +19,20 @@ func assertValidatorError(t *testing.T, err, want error) {
 	}
 }
 
-func assertValidatorOK(t *testing.T, resp *authv1.ValidateTokenResponse, agentID, userID string) {
-	t.Helper()
-	if resp.GetOrgId() == "" || resp.GetPermissions() != 42 {
-		t.Fatalf("resp: %+v", resp)
-	}
-	if resp.GetAgentId() != agentID || resp.GetUserId() != userID {
-		t.Fatalf("optional fields missing")
-	}
+type validatorRun struct {
+	argon2          token.Argon2Params
+	tc              validatorCase
+	agentID, userID string
 }
 
-func runValidatorCase(t *testing.T, argon2 token.Argon2Params, tc validatorCase, agentID, userID string) {
+func runValidatorCase(t *testing.T, run validatorRun) {
 	t.Helper()
-	resp, err := token.NewValidator(tc.lookup, argon2).Validate(context.Background(), tc.token)
-	if tc.wantErr != nil {
-		assertValidatorError(t, err, tc.wantErr)
+	resp, err := token.NewValidator(run.tc.lookup, run.argon2).Validate(context.Background(), run.tc.token)
+	if run.tc.wantErr != nil {
+		assertValidatorError(t, err, run.tc.wantErr)
 		return
 	}
-	if tc.expect == "db error" {
+	if run.tc.expect == "db error" {
 		if err == nil {
 			t.Fatal("expected error")
 		}
@@ -46,7 +41,18 @@ func runValidatorCase(t *testing.T, argon2 token.Argon2Params, tc validatorCase,
 	if err != nil {
 		t.Fatalf("Validate: %v", err)
 	}
-	assertValidatorOK(t, resp, agentID, userID)
+	if resp.GetOrgId() == "" {
+		t.Fatalf("resp: %+v", resp)
+	}
+	if resp.GetPermissions() != 42 {
+		t.Fatalf("perms: %d", resp.GetPermissions())
+	}
+	if resp.GetAgentId() != run.agentID {
+		t.Fatal("agent id missing")
+	}
+	if resp.GetUserId() != run.userID {
+		t.Fatal("user id missing")
+	}
 }
 
 type fakeLookup struct {
@@ -82,7 +88,7 @@ func TestValidator_Validate(t *testing.T) {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			runValidatorCase(t, argon2, tc, agentID, userID)
+			runValidatorCase(t, validatorRun{argon2: argon2, tc: tc, agentID: agentID, userID: userID})
 		})
 	}
 }

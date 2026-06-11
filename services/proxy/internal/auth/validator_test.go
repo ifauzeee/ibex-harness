@@ -2,7 +2,6 @@ package auth
 
 import (
 	"context"
-	"errors"
 	"testing"
 	"time"
 
@@ -12,50 +11,37 @@ import (
 
 func strPtr(s string) *string { return &s }
 
-func assertValidatorError(t *testing.T, err, want error) {
-	t.Helper()
-	if !errors.Is(err, want) {
-		t.Fatalf("err = %v, want %v", err, want)
-	}
-}
-
-func assertValidatorResult(t *testing.T, got, want *ValidateResult) {
-	t.Helper()
-	if got.OrgID != want.OrgID || got.Permissions != want.Permissions {
-		t.Fatalf("result: %+v, want %+v", got, want)
-	}
-	if got.AgentID != want.AgentID || got.UserID != want.UserID || got.TokenID != want.TokenID {
-		t.Fatalf("optional fields: %+v, want %+v", got, want)
-	}
-}
-
 func runGRPCValidatorCase(t *testing.T, tc grpcValidatorCase, accessToken string) {
 	t.Helper()
 	got, err := NewGRPCValidator(tc.client, time.Second).Validate(context.Background(), accessToken)
 	if tc.wantErr != nil {
-		assertValidatorError(t, err, tc.wantErr)
+		assertWantError(t, err, tc.wantErr)
 		return
 	}
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	assertValidatorResult(t, got, tc.want)
-}
-
-func TestGRPCValidator_Validate_success(t *testing.T) {
-	t.Parallel()
-	for _, tc := range grpcValidatorSuccessCases(t) {
-		tc := tc
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-			runGRPCValidatorCase(t, tc, "ibex_pat_test")
-		})
+	if got.OrgID != tc.want.OrgID {
+		t.Fatalf("org: %s", got.OrgID)
+	}
+	if got.Permissions != tc.want.Permissions {
+		t.Fatalf("perms: %d", got.Permissions)
+	}
+	if got.AgentID != tc.want.AgentID {
+		t.Fatalf("agent: %s", got.AgentID)
+	}
+	if got.UserID != tc.want.UserID {
+		t.Fatalf("user: %s", got.UserID)
+	}
+	if got.TokenID != tc.want.TokenID {
+		t.Fatalf("token: %s", got.TokenID)
 	}
 }
 
-func TestGRPCValidator_Validate_errors(t *testing.T) {
+func TestGRPCValidator_Validate(t *testing.T) {
 	t.Parallel()
-	for _, tc := range grpcValidatorErrorCases() {
+	cases := append(grpcValidatorSuccessCases(t), grpcValidatorErrorCases()...)
+	for _, tc := range cases {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()

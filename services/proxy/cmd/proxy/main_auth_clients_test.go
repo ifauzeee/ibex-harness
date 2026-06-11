@@ -25,34 +25,41 @@ func startAuthGRPCForTest(t *testing.T) net.Listener {
 	return lis
 }
 
-func assertAuthClientsPresent(t *testing.T, validator auth.TokenValidator, agentVerifier auth.AgentVerifier, client authv1.AuthServiceClient, conn *grpc.ClientConn) {
+type authClientBundle struct {
+	validator     auth.TokenValidator
+	agentVerifier auth.AgentVerifier
+	client        authv1.AuthServiceClient
+	conn          *grpc.ClientConn
+}
+
+func assertAuthClientsPresent(t *testing.T, b authClientBundle) {
 	t.Helper()
-	if validator == nil {
+	if b.validator == nil {
 		t.Fatal("validator nil")
 	}
-	if agentVerifier == nil {
+	if b.agentVerifier == nil {
 		t.Fatal("agentVerifier nil")
 	}
-	if client == nil {
+	if b.client == nil {
 		t.Fatal("client nil")
 	}
-	if conn == nil {
+	if b.conn == nil {
 		t.Fatal("conn nil")
 	}
 }
 
-func assertAuthClientsAbsent(t *testing.T, validator auth.TokenValidator, agentVerifier auth.AgentVerifier, client authv1.AuthServiceClient, conn *grpc.ClientConn) {
+func assertAuthClientsAbsent(t *testing.T, b authClientBundle) {
 	t.Helper()
-	if validator != nil {
+	if b.validator != nil {
 		t.Fatal("validator should be nil")
 	}
-	if agentVerifier != nil {
+	if b.agentVerifier != nil {
 		t.Fatal("agentVerifier should be nil")
 	}
-	if client != nil {
+	if b.client != nil {
 		t.Fatal("client should be nil")
 	}
-	if conn != nil {
+	if b.conn != nil {
 		t.Fatal("conn should be nil")
 	}
 }
@@ -67,7 +74,7 @@ func TestSetupAuthClients_WithGRPCServer(t *testing.T) {
 		t.Fatalf("setupAuthClients: %v", err)
 	}
 	t.Cleanup(func() { _ = conn.Close() })
-	assertAuthClientsPresent(t, validator, agentVerifier, client, conn)
+	assertAuthClientsPresent(t, authClientBundle{validator, agentVerifier, client, conn})
 }
 
 func TestSetupAuthClients_EmptyAddr(t *testing.T) {
@@ -76,5 +83,5 @@ func TestSetupAuthClients_EmptyAddr(t *testing.T) {
 	if err != nil {
 		t.Fatalf("setupAuthClients: %v", err)
 	}
-	assertAuthClientsAbsent(t, validator, agentVerifier, client, conn)
+	assertAuthClientsAbsent(t, authClientBundle{validator, agentVerifier, client, conn})
 }

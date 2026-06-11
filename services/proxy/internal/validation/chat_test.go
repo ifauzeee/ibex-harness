@@ -106,8 +106,14 @@ func TestValidateChatCompletionRequest_modelTooLong(t *testing.T) {
 		Messages: []llm.Message{{Role: "user", Content: "hi"}},
 	}
 	got := ValidateChatCompletionRequest(req)
-	if len(got) != 1 || got[0].Field != "model" || got[0].Code != fieldCodeTooLong {
-		t.Fatalf("got %+v", got)
+	if len(got) != 1 {
+		t.Fatalf("len: %d", len(got))
+	}
+	if got[0].Field != "model" {
+		t.Fatalf("field: %s", got[0].Field)
+	}
+	if got[0].Code != fieldCodeTooLong {
+		t.Fatalf("code: %s", got[0].Code)
 	}
 }
 

@@ -6,32 +6,43 @@ import (
 	"testing"
 )
 
-func TestParseChatCompletionRequest_valid(t *testing.T) {
-	body := `{"model":"gpt-4","messages":[{"role":"user","content":"hi"}],"stream":false,"temperature":0.7}`
+func parseChatRequest(t *testing.T, body string) *ChatCompletionRequest {
+	t.Helper()
 	req, err := ParseChatCompletionRequest(strings.NewReader(body))
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	if req.Model != "gpt-4" || len(req.Messages) != 1 {
-		t.Fatalf("got %+v", req)
+	return req
+}
+
+func TestParseChatCompletionRequest_valid(t *testing.T) {
+	body := `{"model":"gpt-4","messages":[{"role":"user","content":"hi"}],"stream":false,"temperature":0.7}`
+	req := parseChatRequest(t, body)
+	if req.Model != "gpt-4" {
+		t.Fatalf("model: %q", req.Model)
 	}
-	if req.Messages[0].Role != "user" || req.Messages[0].Content != "hi" {
-		t.Fatalf("message: %+v", req.Messages[0])
+	if len(req.Messages) != 1 {
+		t.Fatalf("messages: %d", len(req.Messages))
+	}
+	if req.Messages[0].Role != "user" {
+		t.Fatalf("role: %s", req.Messages[0].Role)
+	}
+	if req.Messages[0].Content != "hi" {
+		t.Fatalf("content: %s", req.Messages[0].Content)
 	}
 	if req.Stream {
 		t.Fatal("expected stream false")
 	}
-	if req.Temperature == nil || *req.Temperature != 0.7 {
-		t.Fatalf("temperature: %v", req.Temperature)
+	if req.Temperature == nil {
+		t.Fatal("temperature nil")
+	}
+	if *req.Temperature != 0.7 {
+		t.Fatalf("temperature: %v", *req.Temperature)
 	}
 }
 
 func TestParseChatCompletionRequest_unknownFieldsIgnored(t *testing.T) {
-	body := `{"model":"m","messages":[],"extra_field":true}`
-	req, err := ParseChatCompletionRequest(strings.NewReader(body))
-	if err != nil {
-		t.Fatalf("parse: %v", err)
-	}
+	req := parseChatRequest(t, `{"model":"m","messages":[],"extra_field":true}`)
 	if req.Model != "m" {
 		t.Fatalf("model: %q", req.Model)
 	}

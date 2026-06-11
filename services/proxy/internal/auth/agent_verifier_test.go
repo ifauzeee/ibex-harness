@@ -12,13 +12,6 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-func assertAgentRecord(t *testing.T, got, want *AgentRecord) {
-	t.Helper()
-	if got.ID != want.ID || got.OrgID != want.OrgID || got.Status != want.Status {
-		t.Fatalf("got %+v, want %+v", got, want)
-	}
-}
-
 func runAgentVerifierCase(t *testing.T, tc agentVerifierCase) {
 	t.Helper()
 	const (
@@ -28,29 +21,27 @@ func runAgentVerifierCase(t *testing.T, tc agentVerifierCase) {
 	)
 	got, err := NewGRPCAgentVerifier(tc.client, time.Second).Verify(context.Background(), bearer, agentID, orgID)
 	if tc.wantErr != nil {
-		assertValidatorError(t, err, tc.wantErr)
+		assertWantError(t, err, tc.wantErr)
 		return
 	}
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	assertAgentRecord(t, got, tc.want)
-}
-
-func TestGRPCAgentVerifier_Verify_ok(t *testing.T) {
-	t.Parallel()
-	for _, tc := range agentVerifierOKCases(t) {
-		tc := tc
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-			runAgentVerifierCase(t, tc)
-		})
+	if got.ID != tc.want.ID {
+		t.Fatalf("id: %s", got.ID)
+	}
+	if got.OrgID != tc.want.OrgID {
+		t.Fatalf("org: %s", got.OrgID)
+	}
+	if got.Status != tc.want.Status {
+		t.Fatalf("status: %s", got.Status)
 	}
 }
 
-func TestGRPCAgentVerifier_Verify_errors(t *testing.T) {
+func TestGRPCAgentVerifier_Verify(t *testing.T) {
 	t.Parallel()
-	for _, tc := range agentVerifierErrorCases() {
+	cases := append(agentVerifierOKCases(t), agentVerifierErrorCases()...)
+	for _, tc := range cases {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()

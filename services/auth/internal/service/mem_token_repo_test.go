@@ -30,25 +30,24 @@ func (m *memTokenRepo) CreateToken(_ context.Context, p repository.CreateTokenPa
 	return p.ID, nil
 }
 
-type revokeTokenInput struct {
-	orgID     string
-	tokenID   string
-	revokedBy string
-	reason    *string
+func (m *memTokenRepo) RevokeToken(_ context.Context, in repository.RevokeTokenInput) error {
+	return m.revoke(in)
 }
 
-func (m *memTokenRepo) RevokeToken(_ context.Context, orgID, tokenID, revokedBy string, reason *string) error {
-	return m.revoke(revokeTokenInput{orgID: orgID, tokenID: tokenID, revokedBy: revokedBy, reason: reason})
-}
-
-func (m *memTokenRepo) revoke(in revokeTokenInput) error {
+func (m *memTokenRepo) revoke(in repository.RevokeTokenInput) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	p, ok := m.tokens[in.tokenID]
-	if !ok || p.OrgID != in.orgID || m.revoked[in.tokenID] {
+	p, ok := m.tokens[in.TokenID]
+	if !ok {
 		return repository.ErrNotFound
 	}
-	m.revoked[in.tokenID] = true
+	if p.OrgID != in.OrgID {
+		return repository.ErrNotFound
+	}
+	if m.revoked[in.TokenID] {
+		return repository.ErrNotFound
+	}
+	m.revoked[in.TokenID] = true
 	return nil
 }
 
