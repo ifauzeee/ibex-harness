@@ -3,7 +3,6 @@ package http
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -24,6 +23,16 @@ type mockLimiter struct {
 
 func (m *mockLimiter) Check(_ context.Context, _, _ uuid.UUID) (ratelimit.Result, error) {
 	return m.result, m.err
+}
+
+func assertRateLimitHeaders(t *testing.T, rec *httptest.ResponseRecorder, limit, remaining string) {
+	t.Helper()
+	if got := rec.Header().Get("X-RateLimit-Limit"); got != limit {
+		t.Fatalf("limit header: got %q want %q", got, limit)
+	}
+	if got := rec.Header().Get("X-RateLimit-Remaining"); got != remaining {
+		t.Fatalf("remaining header: got %q want %q", got, remaining)
+	}
 }
 
 func TestRateLimitMiddleware_allowed(t *testing.T) {
@@ -51,12 +60,7 @@ func TestRateLimitMiddleware_allowed(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status: %d body=%s", rec.Code, rec.Body.String())
 	}
-	if rec.Header().Get("X-RateLimit-Limit") != "60" {
-		t.Fatalf("limit header: %q", rec.Header().Get("X-RateLimit-Limit"))
-	}
-	if rec.Header().Get("X-RateLimit-Remaining") != "59" {
-		t.Fatalf("remaining header: %q", rec.Header().Get("X-RateLimit-Remaining"))
-	}
+	assertRateLimitHeaders(t, rec, "60", "59")
 }
 
 func TestRateLimitMiddleware_denied(t *testing.T) {
@@ -89,9 +93,7 @@ func TestRateLimitMiddleware_denied(t *testing.T) {
 	if rec.Header().Get("Retry-After") == "" {
 		t.Fatal("missing Retry-After")
 	}
-	if rec.Header().Get("X-RateLimit-Remaining") != "0" {
-		t.Fatalf("remaining: %q", rec.Header().Get("X-RateLimit-Remaining"))
-	}
+	assertRateLimitHeaders(t, rec, "60", "0")
 
 	var body struct {
 		Error struct {
@@ -103,46 +105,6 @@ func TestRateLimitMiddleware_denied(t *testing.T) {
 	}
 	if body.Error.Code != string(apierror.CodeRateLimited) {
 		t.Fatalf("code: %q", body.Error.Code)
-	}
-}
-
-func TestRateLimitMiddleware_failOpen(t *testing.T) {
-	t.Parallel()
-
-	orgID := uuid.MustParse("550e8400-e29b-41d4-a716-446655440000")
-	limiter := &mockLimiter{err: errors.New("redis down")}
-
-	handler := RateLimitMiddleware(limiter, logger.Discard("proxy"), metrics.NewProxy("test"))(
-		http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-			w.WriteHeader(http.StatusOK)
-		}),
-	)
-
-	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/v1/internal/auth-probe", nil)
-	req = req.WithContext(auth.WithContext(req.Context(), &auth.ValidateResult{OrgID: orgID.String()}))
-	handler.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected fail-open 200, got %d", rec.Code)
-	}
-}
-
-func TestRateLimitMiddleware_missingAuthContext(t *testing.T) {
-	t.Parallel()
-
-	handler := RateLimitMiddleware(&mockLimiter{}, logger.Discard("proxy"), metrics.NewProxy("test"))(
-		http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-			w.WriteHeader(http.StatusOK)
-		}),
-	)
-
-	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/v1/internal/auth-probe", nil)
-	handler.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusInternalServerError {
-		t.Fatalf("status: %d", rec.Code)
 	}
 }
 

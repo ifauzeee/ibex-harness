@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"log/slog"
 	"net"
 	"net/http"
@@ -14,7 +13,6 @@ import (
 	"github.com/Rick1330/ibex-harness/packages/logger"
 	ibexmetrics "github.com/Rick1330/ibex-harness/packages/metrics"
 	authv1 "github.com/Rick1330/ibex-harness/packages/proto/gen/go/ibex/auth/v1"
-	"github.com/Rick1330/ibex-harness/packages/shutdown"
 	"github.com/Rick1330/ibex-harness/packages/telemetry"
 	"github.com/Rick1330/ibex-harness/services/auth/internal/config"
 	grpcserver "github.com/Rick1330/ibex-harness/services/auth/internal/grpc"
@@ -27,26 +25,32 @@ import (
 )
 
 func main() {
+	os.Exit(run(os.Args[1:]))
+}
+
+func run(args []string) int {
+	return runBootstrap(args, nil)
+}
+
+func runBootstrap(_ []string, signalCh chan os.Signal) int {
 	cfg, err := config.Load()
 	if err != nil {
 		slog.New(slog.NewJSONHandler(os.Stderr, nil)).Error("invalid configuration", "error", err)
-		os.Exit(1)
+		return 1
 	}
 
 	log, err := logger.New(logger.Config{Service: cfg.ServiceName, Level: cfg.LogLevel})
 	if err != nil {
 		slog.New(slog.NewJSONHandler(os.Stderr, nil)).Error("logger init failed", "error", err)
-		os.Exit(1)
+		return 1
 	}
 
 	db, err := sql.Open("postgres", cfg.PostgresDSN)
 	if err != nil {
 		log.ErrorCtx(context.Background(), "postgres open failed", "error", err)
-		os.Exit(1)
+		return 1
 	}
-	db.SetMaxOpenConns(10)
-	db.SetMaxIdleConns(5)
-	db.SetConnMaxLifetime(30 * time.Minute)
+	configurePostgresPool(db)
 
 	reg := ibexmetrics.NewAuth(ibexmetrics.AuthConfig{ServiceName: cfg.ServiceName, DB: db})
 	repo := repository.NewTokensRepository(db, reg)
@@ -57,7 +61,7 @@ func main() {
 	providers, tracer, err := telemetry.InitTracer(context.Background(), cfg.Telemetry, "ibex-auth")
 	if err != nil {
 		log.ErrorCtx(context.Background(), "telemetry init failed", "error", err)
-		os.Exit(1)
+		return 1
 	}
 
 	grpcSrv := grpc.NewServer(
@@ -71,7 +75,7 @@ func main() {
 	grpcLis, err := net.Listen("tcp", config.ListenAddress(cfg.GRPCPort))
 	if err != nil {
 		log.ErrorCtx(context.Background(), "grpc listen failed", "error", err)
-		os.Exit(1)
+		return 1
 	}
 
 	healthSrv := &healthcheck.Server{
@@ -87,68 +91,14 @@ func main() {
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
-	runWithShutdown(shutdownOpts{
+	return runWithShutdown(shutdownOpts{
 		cfg: cfg, logger: log, providers: providers, grpcSrv: grpcSrv, grpcLis: grpcLis,
-		httpServer: httpServer, db: db,
+		httpServer: httpServer, db: db, signalCh: signalCh,
 	})
 }
 
-type shutdownOpts struct {
-	cfg        config.Config
-	logger     *logger.Logger
-	providers  *telemetry.Providers
-	grpcSrv    *grpc.Server
-	grpcLis    net.Listener
-	httpServer *http.Server
-	db         *sql.DB
-}
-
-func runWithShutdown(opts shutdownOpts) {
-	errCh := make(chan error, 2)
-	go func() {
-		opts.logger.InfoCtx(context.Background(), "grpc starting", "port", opts.cfg.GRPCPort)
-		if err := opts.grpcSrv.Serve(opts.grpcLis); err != nil {
-			errCh <- err
-			return
-		}
-		errCh <- nil
-	}()
-	go func() {
-		opts.logger.InfoCtx(context.Background(), "http starting", "port", opts.cfg.Port, "env", opts.cfg.Environment)
-		if err := opts.httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			errCh <- err
-			return
-		}
-		errCh <- nil
-	}()
-
-	sd := shutdown.New(opts.cfg.ShutdownTimeout, opts.logger)
-	sd.Register(opts.providers.Shutdown)
-	sd.Register(func(ctx context.Context) error {
-		return shutdown.GracefulStopGRPC(opts.grpcSrv, ctx)
-	})
-	sd.Register(func(ctx context.Context) error {
-		return opts.httpServer.Shutdown(ctx)
-	})
-	sd.Register(func(ctx context.Context) error {
-		return opts.db.Close()
-	})
-
-	shutdownErrCh := make(chan error, 1)
-	go func() {
-		shutdownErrCh <- sd.Wait()
-	}()
-
-	select {
-	case err := <-errCh:
-		if err != nil {
-			opts.logger.ErrorCtx(context.Background(), "server failed", "error", err)
-			os.Exit(1)
-		}
-	case err := <-shutdownErrCh:
-		if err != nil {
-			os.Exit(1)
-		}
-		opts.logger.InfoCtx(context.Background(), "service stopped")
-	}
+func configurePostgresPool(db *sql.DB) {
+	db.SetMaxOpenConns(10)
+	db.SetMaxIdleConns(5)
+	db.SetConnMaxLifetime(30 * time.Minute)
 }

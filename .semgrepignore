@@ -2,3 +2,4 @@ docs/
 prompts/
 **/*.md
 .github/
+infra/testing/grpctest/

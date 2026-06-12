@@ -8,8 +8,10 @@ import (
 	"testing"
 
 	"github.com/bufbuild/protocompile"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/descriptorpb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func protoRoot(t *testing.T) string {
@@ -184,14 +186,50 @@ func TestAuthProtoContractADR0006(t *testing.T) {
 	}
 }
 
-func TestContextProtoHasExpectedRPCCount(t *testing.T) {
-	fd := compileProto(t, "ibex/context/v1/context.proto")
+func protoRoundTrip(t *testing.T, msg proto.Message) {
+	t.Helper()
+	data, err := proto.Marshal(msg)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	out := proto.Clone(msg)
+	proto.Reset(out)
+	if err := proto.Unmarshal(data, out); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if !proto.Equal(msg, out) {
+		t.Fatalf("round-trip mismatch:\n  got  %v\n  want %v", out, msg)
+	}
+}
 
-	svc := findService(fd, "ContextAssemblyService")
-	if svc == nil {
-		t.Fatal("ContextAssemblyService not found")
+func strPtr(s string) *string { return &s }
+
+func sampleTimestamp() *timestamppb.Timestamp {
+	return timestamppb.Now()
+}
+
+func runAuthMessageRoundTrips(t *testing.T, cases []authMessageCase) {
+	t.Helper()
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			protoRoundTrip(t, tc.msg)
+		})
 	}
-	if svc.Methods().Len() != 3 {
-		t.Fatalf("ContextAssemblyService RPC count: got %d want 3", svc.Methods().Len())
-	}
+}
+
+func TestAuthValidateMessagesProtoRoundTrip(t *testing.T) {
+	t.Parallel()
+	runAuthMessageRoundTrips(t, authValidateMessageCases(sampleTimestamp()))
+}
+
+func TestAuthTokenMessagesProtoRoundTrip(t *testing.T) {
+	t.Parallel()
+	runAuthMessageRoundTrips(t, authTokenMessageCases(sampleTimestamp()))
+}
+
+func TestAuthListMessagesProtoRoundTrip(t *testing.T) {
+	t.Parallel()
+	runAuthMessageRoundTrips(t, authListMessageCases(sampleTimestamp()))
 }

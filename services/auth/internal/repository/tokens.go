@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/Rick1330/ibex-harness/packages/metrics"
@@ -148,15 +149,23 @@ func (r *TokensRepository) CreateToken(ctx context.Context, p CreateTokenParams)
 	return id, err
 }
 
+// RevokeTokenInput scopes a revoke operation to one org token.
+type RevokeTokenInput struct {
+	OrgID     string
+	TokenID   string
+	RevokedBy string
+	Reason    *string
+}
+
 // RevokeToken marks a token revoked within org scope.
-func (r *TokensRepository) RevokeToken(ctx context.Context, orgID, tokenID, revokedBy string, reason *string) error {
+func (r *TokensRepository) RevokeToken(ctx context.Context, in RevokeTokenInput) error {
 	start := time.Now()
 	defer observeQuery(r.obs, "revoke_token", start)
 
 	return r.withServiceAccount(ctx, func(tx *sql.Tx) error {
 		var revokedByArg any
-		if revokedBy != "" {
-			revokedByArg = revokedBy
+		if in.RevokedBy != "" {
+			revokedByArg = in.RevokedBy
 		}
 		res, err := tx.ExecContext(ctx, `
 			UPDATE ibex_core.tokens
@@ -165,7 +174,7 @@ func (r *TokensRepository) RevokeToken(ctx context.Context, orgID, tokenID, revo
 			    revoked_by = $3::uuid,
 			    revoke_reason = $4
 			WHERE id = $1::uuid AND org_id = $2::uuid AND is_revoked = false`,
-			tokenID, orgID, revokedByArg, reason,
+			in.TokenID, in.OrgID, revokedByArg, in.Reason,
 		)
 		if err != nil {
 			return err
@@ -189,8 +198,13 @@ func (r *TokensRepository) ListTokens(ctx context.Context, orgID, cursor string,
 	if limit <= 0 || limit > 100 {
 		limit = 50
 	}
+	cursorTS, cursorID, err := decodeTokenCursor(cursor)
+	if err != nil {
+		return nil, "", fmt.Errorf("ListTokens cursor: %w", err)
+	}
+
 	var rows []TokenMetadata
-	err := r.withServiceAccount(ctx, func(tx *sql.Tx) error {
+	err = r.withServiceAccount(ctx, func(tx *sql.Tx) error {
 		query := `
 			SELECT id::text, name, prefix, permissions, expires_at, created_at, revoked_at, is_revoked
 			FROM ibex_core.tokens
@@ -198,9 +212,9 @@ func (r *TokensRepository) ListTokens(ctx context.Context, orgID, cursor string,
 		args := []any{orgID}
 		argN := 2
 		if cursor != "" {
-			query += fmt.Sprintf(` AND id::text < $%d`, argN)
-			args = append(args, cursor)
-			argN++
+			query += fmt.Sprintf(` AND (created_at < $%d OR (created_at = $%d AND id < $%d::uuid))`, argN, argN, argN+1)
+			args = append(args, cursorTS, cursorID)
+			argN += 2
 		}
 		query += fmt.Sprintf(` ORDER BY created_at DESC, id DESC LIMIT $%d`, argN)
 		args = append(args, limit+1)
@@ -226,10 +240,43 @@ func (r *TokensRepository) ListTokens(ctx context.Context, orgID, cursor string,
 	}
 	var next string
 	if len(rows) > limit {
-		next = rows[limit-1].ID
+		last := rows[limit-1]
+		next = encodeTokenCursor(last.CreatedAt, last.ID)
 		rows = rows[:limit]
 	}
 	return rows, next, nil
+}
+
+func encodeTokenCursor(createdAt time.Time, id string) string {
+	return fmt.Sprintf("%d|%s", createdAt.UTC().UnixNano(), id)
+}
+
+func decodeTokenCursor(cursor string) (time.Time, string, error) {
+	if cursor == "" {
+		return time.Time{}, "", nil
+	}
+	nano, id, err := parseTokenCursorParts(cursor)
+	if err != nil {
+		return time.Time{}, "", err
+	}
+	return time.Unix(0, nano).UTC(), id, nil
+}
+
+func parseTokenCursorParts(cursor string) (nano int64, id string, err error) {
+	parts := strings.SplitN(cursor, "|", 2)
+	if len(parts) != 2 {
+		return 0, "", fmt.Errorf("invalid cursor %q", cursor)
+	}
+	if parts[0] == "" {
+		return 0, "", fmt.Errorf("invalid cursor %q", cursor)
+	}
+	if parts[1] == "" {
+		return 0, "", fmt.Errorf("invalid cursor %q", cursor)
+	}
+	if _, err := fmt.Sscanf(parts[0], "%d", &nano); err != nil {
+		return 0, "", fmt.Errorf("invalid cursor timestamp: %w", err)
+	}
+	return nano, parts[1], nil
 }
 
 // InsertTestOrganization inserts an organization (integration tests only).

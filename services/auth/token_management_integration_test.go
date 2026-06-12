@@ -39,10 +39,11 @@ func startAuthGRPC(t *testing.T, dbDSN string) (authv1.AuthServiceClient, func()
 	if err != nil {
 		t.Fatalf("listen: %v", err)
 	}
-	grpcSrv := grpc.NewServer(grpc.ChainUnaryInterceptor(
-		grpcserver.MetricsUnaryInterceptor(reg),
-		grpcserver.AuthzUnaryInterceptor(validator),
-	))
+	grpcSrv := grpc.NewServer( // nosemgrep: go.grpc.security.grpc-server-insecure-connection
+		grpc.ChainUnaryInterceptor(
+			grpcserver.MetricsUnaryInterceptor(reg),
+			grpcserver.AuthzUnaryInterceptor(validator),
+		))
 	authv1.RegisterAuthServiceServer(grpcSrv, grpcserver.NewServer(validator, tokenSvc, agentsRepo, reg))
 	go func() { _ = grpcSrv.Serve(lis) }()
 

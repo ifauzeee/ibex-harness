@@ -88,6 +88,12 @@ func redactFieldValue(field reflect.StructField, fv reflect.Value) any {
 	if isSecretField(field, fv) {
 		return "[REDACTED]"
 	}
+	if fv.Kind() == reflect.Pointer {
+		if fv.IsNil() {
+			return nil
+		}
+		return redactFieldValue(field, fv.Elem())
+	}
 	if fv.Kind() == reflect.Struct && field.Type != reflect.TypeOf(Secret("")) {
 		nested := make(map[string]any)
 		redactValue(fv, nested)

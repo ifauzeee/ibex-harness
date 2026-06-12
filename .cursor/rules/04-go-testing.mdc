@@ -171,6 +171,7 @@ if result != expected {
 
 ## Coverage requirements
 
+- **Merged Go profile (unit + integration): ≥ 94%** — enforced by `infra/scripts/coverage-gate.sh` in CI
 - Packages in `packages/*`: ≥ 90% statement coverage
 - `services/*/internal/middleware/*`: ≥ 85% statement coverage
 - `services/*/internal/store/*`: ≥ 80% statement coverage

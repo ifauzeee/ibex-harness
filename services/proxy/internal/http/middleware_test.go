@@ -28,6 +28,18 @@ func TestBodySizeLimitMiddleware_rejectsOversizedContentLength(t *testing.T) {
 	}
 }
 
+func TestContentTypeMiddleware_allowsGETWithoutJSON(t *testing.T) {
+	handler := ContentTypeMiddleware("")(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status: %d", rec.Code)
+	}
+}
+
 func TestContentTypeMiddleware_requiresJSON(t *testing.T) {
 	handler := chain(
 		RequestContextMiddleware(config.Config{RequestIDHeader: "X-Request-ID", TraceIDHeader: "X-Trace-ID"}),
@@ -66,6 +78,20 @@ func TestResponseHeadersMiddleware_setsHeaders(t *testing.T) {
 	}
 	if rec.Header().Get("X-Response-Time") == "" {
 		t.Fatal("missing X-Response-Time")
+	}
+}
+
+func TestFormatMillis(t *testing.T) {
+	t.Parallel()
+
+	if got := formatMillis(0); got != "0" {
+		t.Fatalf("zero: %q", got)
+	}
+	if got := formatMillis(42); got != "42" {
+		t.Fatalf("positive: %q", got)
+	}
+	if got := formatMillis(-5); got != "0" {
+		t.Fatalf("negative: %q", got)
 	}
 }
 

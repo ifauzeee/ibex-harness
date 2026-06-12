@@ -17,10 +17,15 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
+// tokenValidator validates bearer tokens for ValidateToken RPCs.
+type tokenValidator interface {
+	Validate(ctx context.Context, accessToken string) (*authv1.ValidateTokenResponse, error)
+}
+
 // Server implements ibex.auth.v1.AuthService.
 type Server struct {
 	authv1.UnimplementedAuthServiceServer
-	validator    *token.Validator
+	validator    tokenValidator
 	tokenService *service.TokenService
 	metrics      *metrics.AuthRegistry
 	agentsStore  AgentStore
@@ -31,7 +36,7 @@ type AgentStore interface {
 }
 
 func NewServer(
-	validator *token.Validator,
+	validator tokenValidator,
 	tokenSvc *service.TokenService,
 	agentsStore AgentStore,
 	reg *metrics.AuthRegistry,

@@ -1,0 +1,71 @@
+package grpcserver
+
+import (
+	"context"
+	"errors"
+	"testing"
+
+	"github.com/Rick1330/ibex-harness/packages/permissions"
+	"github.com/Rick1330/ibex-harness/services/auth/internal/repository"
+	"github.com/google/uuid"
+	"google.golang.org/grpc/codes"
+)
+
+func revokeTokenCases(t *testing.T) []revokeTokenCase {
+	t.Helper()
+	orgID, tokenID := uuid.NewString(), uuid.NewString()
+	selfTokenID := uuid.NewString()
+	return []revokeTokenCase{
+		{
+			name: "unauthenticated", ctx: context.Background(),
+			req: revokeTokenRequest(orgID, tokenID), wantCode: codes.Unauthenticated,
+		},
+		{
+			name: "cross tenant not found",
+			ctx: ContextWithCaller(context.Background(), CallerContext{
+				OrgID: uuid.NewString(), Permissions: permissions.Admin,
+			}),
+			req: revokeTokenRequest(orgID, tokenID), wantCode: codes.NotFound,
+		},
+		{
+			name: "permission denied",
+			ctx: ContextWithCaller(context.Background(), CallerContext{
+				OrgID: orgID, TokenID: uuid.NewString(), Permissions: permissions.ReadOnly,
+			}),
+			req: revokeTokenRequest(orgID, tokenID), wantCode: codes.PermissionDenied,
+		},
+		{
+			name: "not found in repo", ctx: adminCtx(t, orgID),
+			req: revokeTokenRequest(orgID, tokenID),
+			repo: &fakeTokenRepo{
+				revokeFn: func(context.Context, repository.RevokeTokenInput) error {
+					return repository.ErrNotFound
+				},
+			},
+			wantCode: codes.NotFound,
+		},
+		{
+			name: "internal error", ctx: adminCtx(t, orgID),
+			req: revokeTokenRequest(orgID, tokenID),
+			repo: &fakeTokenRepo{
+				revokeFn: func(context.Context, repository.RevokeTokenInput) error {
+					return errors.New("db down")
+				},
+			},
+			wantCode: codes.Internal,
+		},
+		{
+			name: "self revoke ok",
+			ctx: ContextWithCaller(context.Background(), CallerContext{
+				OrgID: orgID, TokenID: selfTokenID, Permissions: permissions.ReadOnly,
+			}),
+			req: revokeTokenRequest(orgID, selfTokenID), repo: &fakeTokenRepo{},
+			wantCode: codes.OK,
+		},
+		{
+			name: "admin revoke ok", ctx: adminCtx(t, orgID),
+			req: revokeTokenRequest(orgID, tokenID), repo: &fakeTokenRepo{},
+			wantCode: codes.OK,
+		},
+	}
+}

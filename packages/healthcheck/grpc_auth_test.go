@@ -2,6 +2,7 @@ package healthcheck
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -56,7 +57,39 @@ func TestAuthGRPC_UnavailableFails(t *testing.T) {
 func TestAuthGRPC_NilClient(t *testing.T) {
 	t.Parallel()
 	err := AuthGRPC(nil, time.Second)(context.Background())
-	if err == nil {
-		t.Fatal("expected error")
+	if !errors.Is(err, ErrAuthGRPCClientNotConfigured) {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestAuthGRPC_successResponse(t *testing.T) {
+	t.Parallel()
+
+	client := &mockAuthClient{}
+	err := AuthGRPC(client, time.Second)(context.Background())
+	if err != nil {
+		t.Fatalf("expected nil: %v", err)
+	}
+}
+
+func TestAuthGRPC_timeout(t *testing.T) {
+	t.Parallel()
+
+	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(-time.Second))
+	defer cancel()
+
+	client := &mockAuthClient{err: status.Error(codes.Unavailable, "slow")}
+	err := AuthGRPC(client, time.Millisecond)(ctx)
+	if !errors.Is(err, ErrAuthGRPCReadinessTimeout) {
+		t.Fatalf("unexpected: %v", err)
+	}
+}
+
+func TestAuthGRPC_defaultTimeout(t *testing.T) {
+	t.Parallel()
+
+	checker := AuthGRPC(&mockAuthClient{err: status.Error(codes.Unauthenticated, "bad")}, 0)
+	if err := checker(context.Background()); err != nil {
+		t.Fatalf("expected healthy unauthenticated: %v", err)
 	}
 }

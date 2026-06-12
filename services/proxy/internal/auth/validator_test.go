@@ -1,0 +1,64 @@
+package auth
+
+import (
+	"context"
+	"testing"
+	"time"
+
+	authv1 "github.com/Rick1330/ibex-harness/packages/proto/gen/go/ibex/auth/v1"
+	"google.golang.org/grpc"
+)
+
+func strPtr(s string) *string { return &s }
+
+func runGRPCValidatorCase(t *testing.T, tc grpcValidatorCase, accessToken string) {
+	t.Helper()
+	got, err := NewGRPCValidator(tc.client, time.Second).Validate(context.Background(), accessToken)
+	if tc.wantErr != nil {
+		assertWantError(t, err, tc.wantErr)
+		return
+	}
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got.OrgID != tc.want.OrgID {
+		t.Fatalf("org: %s", got.OrgID)
+	}
+	if got.Permissions != tc.want.Permissions {
+		t.Fatalf("perms: %d", got.Permissions)
+	}
+	if got.AgentID != tc.want.AgentID {
+		t.Fatalf("agent: %s", got.AgentID)
+	}
+	if got.UserID != tc.want.UserID {
+		t.Fatalf("user: %s", got.UserID)
+	}
+	if got.TokenID != tc.want.TokenID {
+		t.Fatalf("token: %s", got.TokenID)
+	}
+}
+
+func TestGRPCValidator_Validate(t *testing.T) {
+	t.Parallel()
+	cases := append(grpcValidatorSuccessCases(t), grpcValidatorErrorCases()...)
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			runGRPCValidatorCase(t, tc, "ibex_pat_test")
+		})
+	}
+}
+
+func TestNewGRPCValidator_defaultTimeout(t *testing.T) {
+	t.Parallel()
+	client := &mockAuthServiceClient{
+		validateTokenFn: func(context.Context, *authv1.ValidateTokenRequest, ...grpc.CallOption) (*authv1.ValidateTokenResponse, error) {
+			return &authv1.ValidateTokenResponse{OrgId: "org", Permissions: 1}, nil
+		},
+	}
+	v := NewGRPCValidator(client, 0)
+	if v.timeout != 50*time.Millisecond {
+		t.Fatalf("timeout: %s", v.timeout)
+	}
+}

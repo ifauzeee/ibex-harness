@@ -16,7 +16,8 @@
       { "context": "go-services (proxy)" },
       { "context": "proxy-auth-smoke" },
       { "context": "bandit" },
-      { "context": "hadolint" }
+      { "context": "hadolint" },
+      { "context": "coverage" }
     ]
   },
   "enforce_admins": true,

@@ -25,6 +25,12 @@ vendor/
 *.test
 coverage.out
 coverage.html
+# Go coverage profiles (local only; never commit)
+*.out
+coverage-go*.out
+*-handwritten.out
+authcov
+authcov.*
 
 # --- Python ---
 __pycache__/
