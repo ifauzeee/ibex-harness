@@ -1,15 +1,18 @@
 import { spawn } from "node:child_process";
 import { createRequire } from "node:module";
-import { access, writeFile } from "node:fs/promises";
+import { access, mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 
+import { generateOgImages } from "./generate-og-images.mjs";
+
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const appRoot = path.resolve(scriptDir, "..");
-const outputPath = path.join(appRoot, "public", "search-index.json");
+const publicDir = path.join(appRoot, "public");
 const buildIdPath = path.join(appRoot, ".next", "BUILD_ID");
 const EXTRACT_PORT = Number(process.env.SEARCH_EXTRACT_PORT ?? 34567);
+const MAX_INDEX_BYTES = Number(process.env.SEARCH_INDEX_MAX_BYTES ?? 5_000_000);
 
 const require = createRequire(import.meta.url);
 const nextBin = path.join(
@@ -49,7 +52,12 @@ function waitForReady(child, timeoutMs = 120_000) {
 
     const onExit = (code) => {
       clearTimeout(timer);
-      reject(new Error(`next start exited with code ${code ?? "unknown"} before ready`));
+      const detail = child.stderrBuffer?.() ?? "";
+      const codeLabel = code ?? "unknown";
+      const detailSuffix = detail ? `: ${detail.trim()}` : "";
+      reject(
+        new Error(`next start exited with code ${codeLabel} before ready${detailSuffix}`),
+      );
     };
 
     child.stdout?.on("data", onData);
@@ -73,28 +81,77 @@ async function fetchSearchIndex(port) {
       `/api/search response too small (${body.length} bytes); expected prerendered Orama export`,
     );
   }
+  if (body.length > MAX_INDEX_BYTES) {
+    throw new Error(
+      `search index too large (${body.length} bytes); max ${MAX_INDEX_BYTES}`,
+    );
+  }
   return body;
 }
 
 function spawnNextStart(port) {
-  return spawn(process.execPath, [nextBin, "start", "-p", String(port)], {
+  const child = spawn(process.execPath, [nextBin, "start", "-p", String(port)], {
     cwd: appRoot,
     env: { ...process.env, PORT: String(port), SEARCH_EXTRACT: "1" },
     stdio: ["ignore", "pipe", "pipe"],
     shell: false,
   }); // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process
+
+  let stderr = "";
+  child.stderr?.on("data", (chunk) => {
+    stderr += chunk.toString();
+    process.stderr.write(chunk);
+  });
+
+  child.stderrBuffer = () => stderr;
+  return child;
 }
 
-async function extractToPublic(port) {
+async function writeIndexArtifacts(body, buildId) {
+  const targets = [
+    path.join(publicDir, "search-index.json"),
+    path.join(publicDir, `search-index.${buildId}.json`),
+  ];
+
+  await Promise.all(
+    targets.map(async (target) => {
+      await mkdir(path.dirname(target), { recursive: true });
+      await writeFile(target, body, "utf8");
+      console.log(`[search] wrote ${target} (${body.length} bytes)`);
+    }),
+  );
+}
+
+async function tryExtractOnPort(port, buildId) {
   const child = spawnNextStart(port);
   try {
     await waitForReady(child);
     const body = await fetchSearchIndex(port);
-    await writeFile(outputPath, body, "utf8");
-    console.log(`[search] wrote ${outputPath} (${body.length} bytes)`);
+    await writeIndexArtifacts(body, buildId);
+    await generateOgImages(port);
+    return true;
+  } catch (error) {
+    if (!String(error).includes("EADDRINUSE")) {
+      throw error;
+    }
+    console.warn(`[search] port ${port} in use, trying next port`);
+    return false;
   } finally {
     child.kill("SIGTERM");
   }
+}
+
+async function extractToPublic(preferredPort) {
+  const buildId = (await readFile(buildIdPath, "utf8")).trim();
+  const ports = [preferredPort, preferredPort + 1, preferredPort + 2, preferredPort + 3];
+
+  for (const port of ports) {
+    if (await tryExtractOnPort(port, buildId)) {
+      return;
+    }
+  }
+
+  throw new Error("search extract failed: all ports in use");
 }
 
 async function main() {
