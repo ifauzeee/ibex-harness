@@ -40,6 +40,7 @@ export function BrandLockup({
           width={28}
           height={28}
           decoding="async"
+          fetchPriority="high"
           className="size-7 object-contain dark:hidden"
         />
         {/* eslint-disable-next-line @next/next/no-img-element -- static brand marks; avoids dev image optimizer latency */}
@@ -49,6 +50,7 @@ export function BrandLockup({
           width={28}
           height={28}
           decoding="async"
+          fetchPriority="high"
           className="hidden size-7 object-contain dark:block"
         />
       </span>
