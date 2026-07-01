@@ -21,11 +21,22 @@ updates:
     directory: /services/auth
     schedule:
       interval: daily
+    labels: ["dependencies", "docker"]
 
   - package-ecosystem: docker
     directory: /services/proxy
     schedule:
       interval: daily
+    labels: ["dependencies", "docker"]
+
+  # Docs site (pnpm workspace; lockfile at repo root).
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    labels: ["dependencies", "typescript"]
 
 # Enable when manifests exist (see docs/DEPENDENCIES.md §9 and prompts/05-new-service-bootstrap.txt):
 #
