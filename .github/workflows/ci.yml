@@ -6,9 +6,6 @@ on:
     branches: [main]
   workflow_dispatch:
 
-permissions:
-  contents: read
-
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}
   cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
@@ -16,8 +13,9 @@ concurrency:
 jobs:
   repo-guards:
     name: repo-guards
-    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Harden the runner (Audit all outbound calls)
         uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
@@ -68,8 +66,9 @@ jobs:
 
   changes:
     name: detect-changes
-    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     outputs:
       docs: ${{ steps.filter.outputs.docs }}
       go: ${{ steps.filter.outputs.go }}
@@ -103,8 +102,9 @@ jobs:
 
   markdown:
     name: markdownlint
-    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Harden the runner (Audit all outbound calls)
         uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
@@ -112,6 +112,8 @@ jobs:
           egress-policy: audit
 
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version: "20"
@@ -120,8 +122,9 @@ jobs:
 
   secrets:
     name: gitleaks
-    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Harden the runner (Audit all outbound calls)
         uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
@@ -145,8 +148,9 @@ jobs:
 
   go-mod-tidy:
     name: go-mod-tidy
-    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Harden the runner (Audit all outbound calls)
         uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
@@ -170,8 +174,9 @@ jobs:
 
   shellcheck:
     name: shellcheck
-    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Harden the runner (Audit all outbound calls)
         uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
@@ -190,8 +195,9 @@ jobs:
   buf-lint:
     name: buf-lint
     needs: repo-guards
-    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Harden the runner (Audit all outbound calls)
         uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
@@ -210,9 +216,10 @@ jobs:
   buf-breaking:
     name: buf-breaking
     needs: buf-lint
-    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     continue-on-error: true
+    permissions:
+      contents: read
     steps:
       - name: Harden the runner (Audit all outbound calls)
         uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
@@ -237,8 +244,9 @@ jobs:
   proto-contract:
     name: proto-contract
     needs: buf-lint
-    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Harden the runner (Audit all outbound calls)
         uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
@@ -246,6 +254,8 @@ jobs:
           egress-policy: audit
 
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
       - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
         with:
           go-version-file: go.mod
@@ -297,8 +307,9 @@ jobs:
 
   compose-validate:
     name: compose-validate
-    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Harden the runner (Audit all outbound calls)
         uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
@@ -306,6 +317,8 @@ jobs:
           egress-policy: audit
 
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
       - name: Validate dev compose
         run: docker compose -f infra/compose/dev/docker-compose.yml --env-file infra/compose/dev/.env.example config
       - name: Validate test compose
@@ -314,8 +327,9 @@ jobs:
   db-migrate-smoke:
     name: db-migrate-smoke
     needs: repo-guards
-    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     services:
       postgres:
         image: postgres:16
@@ -337,6 +351,8 @@ jobs:
           egress-policy: audit
 
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
       - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
         with:
           go-version-file: go.mod
@@ -382,8 +398,9 @@ jobs:
   auth-validate-smoke:
     name: auth-validate-smoke
     needs: [proto-contract, db-migrate-smoke]
-    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     services:
       postgres:
         image: postgres:16
@@ -405,6 +422,8 @@ jobs:
           egress-policy: audit
 
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
       - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
         with:
           go-version-file: go.mod
@@ -451,8 +470,9 @@ jobs:
   proxy-auth-smoke:
     name: proxy-auth-smoke
     needs: [proto-contract, db-migrate-smoke]
-    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     services:
       postgres:
         image: postgres:16
@@ -474,6 +494,8 @@ jobs:
           egress-policy: audit
 
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
       - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
         with:
           go-version-file: go.mod
@@ -520,8 +542,9 @@ jobs:
   proxy-agent-verify-smoke:
     name: proxy-agent-verify-smoke
     needs: [proto-contract, db-migrate-smoke]
-    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     services:
       postgres:
         image: postgres:16
@@ -543,6 +566,8 @@ jobs:
           egress-policy: audit
 
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
       - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
         with:
           go-version-file: go.mod
@@ -594,8 +619,9 @@ jobs:
   security-integration:
     name: security-integration
     needs: [proto-contract, db-migrate-smoke]
-    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     services:
       postgres:
         image: postgres:16
@@ -656,8 +682,9 @@ jobs:
   go-race:
     name: go-race
     needs: proto-contract
-    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Harden the runner (Audit all outbound calls)
         uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
@@ -693,8 +720,9 @@ jobs:
   go-services:
     name: go-services
     needs: proto-contract
-    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     strategy:
       matrix:
         service: [auth, proxy]
@@ -705,6 +733,8 @@ jobs:
           egress-policy: audit
 
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
       - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
         with:
           go-version-file: go.mod
@@ -744,8 +774,9 @@ jobs:
   golangci-lint:
     name: golangci-lint
     needs: proto-contract
-    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Harden the runner (Audit all outbound calls)
         uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
@@ -753,6 +784,8 @@ jobs:
           egress-policy: audit
 
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
       - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
         with:
           go-version-file: go.mod
@@ -770,7 +803,6 @@ jobs:
 
   trivy:
     name: trivy
-    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     permissions:
       security-events: write
@@ -783,6 +815,8 @@ jobs:
           egress-policy: audit
 
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
       - name: Run Trivy filesystem scan
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
@@ -816,8 +850,10 @@ jobs:
   docs-build:
     name: docs-build
     needs: [changes, repo-guards]
-    if: github.event_name != 'schedule' && needs.changes.outputs.docs == 'true'
+    if: needs.changes.outputs.docs == 'true'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Harden the runner (Audit all outbound calls)
         uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
@@ -852,8 +888,9 @@ jobs:
 
   hadolint:
     name: hadolint
-    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Harden the runner (Audit all outbound calls)
         uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
@@ -861,6 +898,8 @@ jobs:
           egress-policy: audit
 
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
       - name: Hadolint all Dockerfiles
         run: |
           # Dockerfiles today: services/auth, services/proxy.
@@ -882,8 +921,9 @@ jobs:
   coverage:
     name: coverage
     needs: [proto-contract, db-migrate-smoke]
-    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     services:
       postgres:
         image: postgres:16
@@ -964,7 +1004,6 @@ jobs:
 
   bandit:
     name: bandit
-    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     permissions:
       security-events: write
@@ -977,19 +1016,24 @@ jobs:
           egress-policy: audit
 
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
         with:
           python-version: "3.11"
       - name: Bandit (memory service)
+        id: bandit
         run: |
           if [ ! -d services/memory ]; then
             echo "services/memory not present — skipping bandit until Python memory service lands"
+            echo "run=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           pip install bandit
           bandit -r services/memory/ -x tests/,test_ -f sarif -o bandit.sarif
+          echo "run=true" >> "$GITHUB_OUTPUT"
       - name: Upload Bandit SARIF
-        if: ${{ hashFiles('bandit.sarif') != '' }}
+        if: steps.bandit.outputs.run == 'true'
         uses: github/codeql-action/upload-sarif@8aad20d150bbac5944a9f9d289da16a4b0d87c1e # v4.36.2
         with:
           sarif_file: bandit.sarif
@@ -1015,6 +1059,8 @@ jobs:
       needs.changes.outputs.docs == 'true' &&
       needs.changes.outputs.go == 'true'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - run: echo "Go quality gates passed for docs deploy"
 
@@ -1033,14 +1079,17 @@ jobs:
       needs.repo-guards.result == 'success' &&
       needs.docs-build.result == 'success' &&
       (needs.changes.outputs.go != 'true' || needs.docs-go-quality-gate.result == 'success')
+    permissions:
+      contents: read
     uses: ./.github/workflows/docs-deploy.yml
     secrets: inherit
 
   govulncheck:
     name: govulncheck
     needs: proto-contract
-    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Harden the runner (Audit all outbound calls)
         uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
@@ -1065,8 +1114,9 @@ jobs:
 
   license-check:
     name: license-check
-    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Harden the runner (Audit all outbound calls)
         uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
