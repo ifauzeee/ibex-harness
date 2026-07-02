@@ -8,6 +8,9 @@ on:
       - synchronize
       - reopened
 
+permissions:
+  contents: read
+
 jobs:
   semantic-pr-title:
     name: semantic-pr-title
