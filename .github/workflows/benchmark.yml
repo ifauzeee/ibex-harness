@@ -56,3 +56,74 @@ jobs:
           comment-on-alert: false
           alert-threshold: 150%
           fail-on-alert: false
+          benchmark-data-dir-path: dev/bench
+
+      - name: Verify benchmark report exists (on gh-pages)
+        run: |
+          git checkout gh-pages
+
+          if [ -d dev/bench ] && [ "$(find dev/bench -type f | wc -l)" -gt 0 ]; then
+            echo "Found benchmark output under dev/bench/ on gh-pages."
+            exit 0
+          fi
+
+          echo "Expected benchmark output under dev/bench/ on gh-pages, but it was empty or missing."
+          echo "Directory listing:"
+          ls -la
+          if [ -d dev ]; then
+            find dev -maxdepth 3 -type f -print
+          fi
+          exit 1
+
+      - name: Ensure gh-pages landing page points to report
+        env:
+          SHA: ${{ github.sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Ensure we can push to gh-pages even though the initial checkout disables credentials.
+          git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git"
+
+          cat <<EOF > index.html
+          <!doctype html>
+          <html lang="en">
+            <head>
+              <meta charset="utf-8" />
+              <meta name="viewport" content="width=device-width, initial-scale=1" />
+              <title>IBEX Harness — Benchmarks</title>
+              <style>
+                :root { color-scheme: light dark; }
+                body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 0; padding: 48px 20px; }
+                .wrap { max-width: 880px; margin: 0 auto; }
+                h1 { font-size: 28px; margin: 0 0 8px; }
+                p { line-height: 1.55; margin: 0 0 12px; opacity: 0.9; }
+                .card { border: 1px solid rgba(127,127,127,0.35); border-radius: 12px; padding: 16px; margin-top: 16px; }
+                a { color: inherit; }
+                code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\", \"Courier New\", monospace; }
+              </style>
+            </head>
+            <body>
+              <div class="wrap">
+                <h1>IBEX Harness — Benchmarks</h1>
+                <p>Continuous benchmarks are published here. This page is intentionally simple and links to the generated report UI.</p>
+
+                <div class="card">
+                  <p><strong>Report UI</strong>: <a href=\"./dev/bench/\">Open benchmark report</a></p>
+                  <p><strong>Latest run</strong>: <a href=\"${RUN_URL}\">${RUN_URL}</a></p>
+                  <p><strong>Commit</strong>: <code>${SHA}</code></p>
+                </div>
+              </div>
+            </body>
+          </html>
+          EOF
+
+          git add index.html
+          if git diff --cached --quiet; then
+            echo "Landing page already up to date."
+            exit 0
+          fi
+
+          git -c user.name=github-action-benchmark -c user.email=github@users.noreply.github.com \
+            commit -m "chore(bench): update benchmarks landing page"
+
+          git push origin gh-pages
