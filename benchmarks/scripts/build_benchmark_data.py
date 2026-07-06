@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import os
 import math
+import re
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -23,6 +24,7 @@ AUTH_GRPC_SHARE = 0.3
 DEFAULT_K6_VUS = 100
 DEFAULT_K6_DURATION_S = 120.0
 DEFAULT_RUNNER_VCPUS = 2
+_SHA_RE = re.compile(r"^[0-9a-f]{7,40}$", re.IGNORECASE)
 
 
 def safe_int(value: str | int | None, default: int) -> int:
@@ -116,6 +118,50 @@ def load_baseline_sha() -> str:
     base = baseline.get("baseline", {})
     raw = str(base.get("baseline_sha") or base.get("target_commit") or "")
     return "" if raw in {"", "unset"} else raw
+
+
+def load_baseline_sha_from_prev() -> str:
+    if not PREV_PATH.exists():
+        return ""
+    data = json.loads(PREV_PATH.read_text(encoding="utf-8"))
+    return str(data.get("baseline_sha") or "")
+
+
+def is_valid_sha_ref(value: str) -> bool:
+    return bool(value and value not in {"", "unset"} and _SHA_RE.match(value))
+
+
+def normalize_sha_ref(value: str) -> str:
+    return value.lower()[:40]
+
+
+def _first_valid_sha(candidates: list[str]) -> str | None:
+    for candidate in candidates:
+        if is_valid_sha_ref(candidate):
+            return normalize_sha_ref(candidate)
+    return None
+
+
+def _baseline_candidates(latest: dict[str, Any], prev_runs: list[dict[str, Any]]) -> list[str]:
+    candidates = [load_baseline_sha(), load_baseline_sha_from_prev()]
+    for run in prev_runs:
+        candidates.extend([str(run.get("sha") or ""), str(run.get("short_sha") or "")])
+    latest_sha = str(latest.get("sha") or os.environ.get("GITHUB_SHA", ""))
+    candidates.extend([latest_sha, short_sha(latest_sha)])
+    return candidates
+
+
+def resolve_output_baseline_sha(
+    latest: dict[str, Any],
+    prev_runs: list[dict[str, Any]],
+) -> str:
+    resolved = _first_valid_sha(_baseline_candidates(latest, prev_runs))
+    if resolved is not None:
+        return resolved
+    raise ValueError(
+        "unable to resolve baseline_sha: pin benchmarks/data-schema/baseline.json "
+        "or ensure prev-benchmark-data.json includes a hexadecimal baseline_sha"
+    )
 
 
 def short_sha(sha: str) -> str:
@@ -329,9 +375,9 @@ def main() -> int:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     latest = json.loads(LATEST_PATH.read_text(encoding="utf-8"))
     gate = load_gate_result()
-    baseline_sha = load_baseline_sha()
-    benchstat = parse_benchstat_json(BENCHSTAT_PATH)
     prev_runs = load_previous_runs()
+    baseline_sha = resolve_output_baseline_sha(latest, prev_runs)
+    benchstat = parse_benchstat_json(BENCHSTAT_PATH)
     ctx = RunBuildContext(
         latest=latest,
         gate=gate,
