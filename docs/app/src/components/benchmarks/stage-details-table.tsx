@@ -1,11 +1,12 @@
 import { STAGE_LABELS, type StageKey } from "@/lib/benchmarks/chart-colors";
-import { formatMs } from "@/lib/benchmarks/format";
-import { SLA_TARGETS } from "@/lib/benchmarks/constants";
-import { stagePercentileRows } from "@/lib/benchmarks/stage-metrics";
+import { GO_MICROBENCH_SYNTHETIC_STAGE_MODEL, SLA_TARGETS } from "@/lib/benchmarks/constants";
+import { formatLatencyMs } from "@/lib/benchmarks/format";
+import { stagePercentileRows, type StagePercentileRow } from "@/lib/benchmarks/stage-metrics";
 import type { StageLatency } from "@/lib/benchmarks/types";
 
 type StageDetailsTableProps = Readonly<{
   stages: StageLatency;
+  stageModel?: string | null;
 }>;
 
 const SLA_KEY: Partial<Record<StageKey, number>> = {
@@ -17,51 +18,95 @@ const SLA_KEY: Partial<Record<StageKey, number>> = {
   total_overhead_p99_ms: SLA_TARGETS.total_overhead_p99_ms,
 };
 
-export function StageDetailsTable({ stages }: StageDetailsTableProps) {
-  const rows = stagePercentileRows(stages, STAGE_LABELS);
+function isSyntheticStageModel(stageModel: string | null | undefined): boolean {
+  return stageModel == null || stageModel === GO_MICROBENCH_SYNTHETIC_STAGE_MODEL;
+}
+
+function formatStageBudget(
+  isSynthetic: boolean,
+  p99: number | undefined,
+  target: number | undefined,
+): string {
+  if (isSynthetic) {
+    return "—";
+  }
+  if (p99 === undefined) {
+    return "—";
+  }
+  if (!target || target <= 0) {
+    return "—";
+  }
+  return `${Math.round((p99 / target) * 100)}%`;
+}
+
+function SyntheticStageCaption() {
+  return (
+    <p className="text-sm text-muted-foreground">
+      Synthetic stage percentiles derived from Go microbenchmarks (ns/op), not live proxy traces.
+      Use k6 p99 for end-to-end SLA. Values below 0.01 ms are shown in µs/ns.
+    </p>
+  );
+}
+
+type StageDetailsRowProps = Readonly<{
+  row: StagePercentileRow;
+  isSynthetic: boolean;
+}>;
+
+function StageDetailsRow({ row, isSynthetic }: StageDetailsRowProps) {
+  const target = SLA_KEY[`${row.base}_p99_ms` as StageKey];
+  const budget = formatStageBudget(isSynthetic, row.p99, target);
 
   return (
-    <div className="overflow-x-auto rounded-md border border-border">
-      <table className="w-full text-left text-sm">
-        <thead className="border-b border-border bg-muted/40">
-          <tr>
-            <th className="px-4 py-2 font-medium text-muted-foreground">Stage</th>
-            <th className="px-4 py-2 font-medium text-muted-foreground">p50</th>
-            <th className="px-4 py-2 font-medium text-muted-foreground">p95</th>
-            <th className="px-4 py-2 font-medium text-muted-foreground">p99</th>
-            <th className="px-4 py-2 font-medium text-muted-foreground">p99.9</th>
-            <th className="px-4 py-2 font-medium text-muted-foreground">Budget</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => {
-            const target = SLA_KEY[`${row.base}_p99_ms` as StageKey];
-            const budget =
-              row.p99 !== undefined && target && target > 0
-                ? `${Math.round((row.p99 / target) * 100)}%`
-                : "—";
+    <tr className="history-row border-b border-border last:border-0">
+      <td className="px-4 py-2">{row.label}</td>
+      <td className="px-4 py-2 font-mono tabular-nums">
+        {row.p50 === undefined ? "—" : formatLatencyMs(row.p50)}
+      </td>
+      <td className="px-4 py-2 font-mono tabular-nums">
+        {row.p95 === undefined ? "—" : formatLatencyMs(row.p95)}
+      </td>
+      <td className="px-4 py-2 font-mono tabular-nums">
+        {row.p99 === undefined ? "—" : formatLatencyMs(row.p99)}
+      </td>
+      <td className="px-4 py-2 font-mono tabular-nums">
+        {row.p999 === undefined ? "—" : formatLatencyMs(row.p999)}
+      </td>
+      {isSynthetic ? null : (
+        <td className="px-4 py-2 font-mono tabular-nums">{budget}</td>
+      )}
+    </tr>
+  );
+}
 
-            return (
-              <tr key={row.base} className="history-row border-b border-border last:border-0">
-                <td className="px-4 py-2">{row.label}</td>
-                <td className="px-4 py-2 font-mono tabular-nums">
-                  {row.p50 === undefined ? "—" : formatMs(row.p50)}
-                </td>
-                <td className="px-4 py-2 font-mono tabular-nums">
-                  {row.p95 === undefined ? "—" : formatMs(row.p95)}
-                </td>
-                <td className="px-4 py-2 font-mono tabular-nums">
-                  {row.p99 === undefined ? "—" : formatMs(row.p99)}
-                </td>
-                <td className="px-4 py-2 font-mono tabular-nums">
-                  {row.p999 === undefined ? "—" : formatMs(row.p999)}
-                </td>
-                <td className="px-4 py-2 font-mono tabular-nums">{budget}</td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+export function StageDetailsTable({ stages, stageModel }: StageDetailsTableProps) {
+  const rows = stagePercentileRows(stages, STAGE_LABELS);
+  const isSynthetic = isSyntheticStageModel(stageModel);
+
+  return (
+    <div className="space-y-2">
+      {isSynthetic ? <SyntheticStageCaption /> : null}
+      <div className="overflow-x-auto rounded-md border border-border">
+        <table className="w-full text-left text-sm">
+          <thead className="border-b border-border bg-muted/40">
+            <tr>
+              <th className="px-4 py-2 font-medium text-muted-foreground">Stage</th>
+              <th className="px-4 py-2 font-medium text-muted-foreground">p50</th>
+              <th className="px-4 py-2 font-medium text-muted-foreground">p95</th>
+              <th className="px-4 py-2 font-medium text-muted-foreground">p99</th>
+              <th className="px-4 py-2 font-medium text-muted-foreground">p99.9</th>
+              {isSynthetic ? null : (
+                <th className="px-4 py-2 font-medium text-muted-foreground">Budget</th>
+              )}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <StageDetailsRow key={row.base} row={row} isSynthetic={isSynthetic} />
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

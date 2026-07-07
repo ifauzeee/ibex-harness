@@ -32,6 +32,80 @@ validate_published_data = load_module(
     "validate_published_data",
     SCRIPTS / "validate_published_data.py",
 )
+benchmark_constants = load_module("benchmark_constants", SCRIPTS / "benchmark_constants.py")
+
+
+def _minimal_benchmark_run(**overrides: object) -> dict[str, object]:
+    run: dict[str, object] = {
+        "sha": "a" * 40,
+        "short_sha": "aaaaaaa",
+        "timestamp": "2026-01-01T00:00:00+00:00",
+        "branch": "main",
+        "status": "pass",
+        "k6": {"p99_ms": 4.0, "error_rate": 0.0},
+    }
+    run.update(overrides)
+    return run
+
+
+def _assert_validate_rejects(payload: dict[str, object]) -> None:
+    try:
+        validate_published_data.validate_payload(payload)
+    except SystemExit:
+        return
+    raise AssertionError("expected validate_payload to raise SystemExit")
+
+
+def _invalid_payload_cases() -> list[tuple[str, dict[str, object]]]:
+    proxy_bench = benchmark_constants.PROXY_OVERHEAD_BENCHMARK
+    return [
+        (
+            "empty baseline_sha",
+            {
+                "schema_version": 1,
+                "baseline_sha": "",
+                "runs": [_minimal_benchmark_run()],
+            },
+        ),
+        (
+            "run_id as run_number",
+            {
+                "schema_version": 1,
+                "baseline_sha": "bfc0a75",
+                "runs": [
+                    _minimal_benchmark_run(
+                        pr_number=None,
+                        run_number=28594093144,
+                        run_url="https://github.com/Rick1330/ibex-harness/actions/runs/28594093144",
+                    ),
+                ],
+            },
+        ),
+        (
+            f"missing {proxy_bench}",
+            {
+                "schema_version": 1,
+                "baseline_sha": "bfc0a75",
+                "runs": [
+                    _minimal_benchmark_run(
+                        go_benchmarks={"BenchmarkOther": {"ns_per_op": 100.0}},
+                    ),
+                ],
+            },
+        ),
+        (
+            "non-positive ns_per_op",
+            {
+                "schema_version": 1,
+                "baseline_sha": "bfc0a75",
+                "runs": [
+                    _minimal_benchmark_run(
+                        go_benchmarks={proxy_bench: {"ns_per_op": 0}},
+                    ),
+                ],
+            },
+        ),
+    ]
 
 
 class AggregateMetricsTests(unittest.TestCase):
@@ -347,23 +421,10 @@ class ValidatePublishedDataTests(unittest.TestCase):
             finally:
                 os.chdir(cwd)
 
-    def test_validate_published_data_rejects_empty_baseline_sha(self) -> None:
-        payload = {
-            "schema_version": 1,
-            "baseline_sha": "",
-            "runs": [
-                {
-                    "sha": "a" * 40,
-                    "short_sha": "aaaaaaa",
-                    "timestamp": "2026-01-01T00:00:00+00:00",
-                    "branch": "main",
-                    "status": "pass",
-                    "k6": {"p99_ms": 4.0, "error_rate": 0.0},
-                },
-            ],
-        }
-        with self.assertRaises(SystemExit):
-            validate_published_data.validate_payload(payload)
+    def test_validate_published_data_rejects_invalid_payloads(self) -> None:
+        for name, payload in _invalid_payload_cases():
+            with self.subTest(name=name):
+                _assert_validate_rejects(payload)
 
     def test_validate_published_data_rejects_duplicate_pr_number(self) -> None:
         payload = {
@@ -390,29 +451,7 @@ class ValidatePublishedDataTests(unittest.TestCase):
                 },
             ],
         }
-        with self.assertRaises(SystemExit):
-            validate_published_data.validate_payload(payload)
-
-    def test_validate_published_data_rejects_run_id_as_run_number(self) -> None:
-        payload = {
-            "schema_version": 1,
-            "baseline_sha": "bfc0a75",
-            "runs": [
-                {
-                    "sha": "a" * 40,
-                    "short_sha": "aaaaaaa",
-                    "timestamp": "2026-01-01T00:00:00+00:00",
-                    "branch": "main",
-                    "pr_number": None,
-                    "run_number": 28594093144,
-                    "run_url": "https://github.com/Rick1330/ibex-harness/actions/runs/28594093144",
-                    "status": "pass",
-                    "k6": {"p99_ms": 4.0, "error_rate": 0.0},
-                },
-            ],
-        }
-        with self.assertRaises(SystemExit):
-            validate_published_data.validate_payload(payload)
+        _assert_validate_rejects(payload)
 
 
 if __name__ == "__main__":
