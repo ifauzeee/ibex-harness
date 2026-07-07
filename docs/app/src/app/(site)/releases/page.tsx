@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 
-import { releasesSource } from "@/lib/source";
-import { getMDXComponents } from "@/mdx-components";
+import { readChangelogReleases } from "@/lib/changelog";
 
 const versionBadge = {
   major:
@@ -14,18 +13,11 @@ const versionBadge = {
 
 export const metadata: Metadata = {
   title: "Changelog",
-  description: "Full version history and release notes for IBEX Harness.",
+  description: "Version history and release notes generated from docs/CHANGELOG.md.",
 };
 
 export default function ReleasesPage() {
-  const mdxComponents = getMDXComponents();
-  const allReleases = releasesSource
-    .getPages()
-    .sort(
-      (a, b) =>
-        new Date(String(b.data.date)).getTime() -
-        new Date(String(a.data.date)).getTime(),
-    );
+  const allReleases = readChangelogReleases();
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-12 md:px-6 md:py-16 lg:px-8">
@@ -42,20 +34,28 @@ export default function ReleasesPage() {
       </header>
 
       <div className="relative">
+        {allReleases.length === 0 ? (
+          <div className="rounded-lg border border-border bg-panel p-6 text-sm text-text-secondary">
+            No tagged releases yet. Release entries appear here automatically
+            when Release Please updates `docs/CHANGELOG.md` for the first
+            published version.
+          </div>
+        ) : null}
+
         {allReleases.length > 1 ? (
           <div className="absolute bottom-0 left-[11px] top-2 w-px bg-border" />
         ) : null}
 
         <div className="space-y-0">
           {allReleases.map((release) => {
-            const MdxContent = release.data.body;
-            const releaseType = release.data.type ?? "patch";
-            const badgeClass =
-              versionBadge[releaseType as keyof typeof versionBadge] ??
-              versionBadge.minor;
+            const releaseType = release.type;
+            const badgeClass = versionBadge[releaseType] ?? versionBadge.minor;
 
             return (
-              <div key={release.url} className="relative flex gap-6 pb-10 last:pb-0">
+              <div
+                key={release.version}
+                className="relative flex gap-6 pb-10 last:pb-0"
+              >
                 <div className="relative z-10 mt-1 shrink-0">
                   <div className="flex size-6 items-center justify-center rounded-full border-2 border-border bg-canvas">
                     <div className="size-2 rounded-full bg-text-primary" />
@@ -65,27 +65,41 @@ export default function ReleasesPage() {
                 <div className="min-w-0 flex-1">
                   <div className="mb-2 flex flex-wrap items-center gap-3">
                     <span className="font-mono text-xl font-bold tracking-tight text-text-primary">
-                      v{release.data.version}
+                      v{release.version}
                     </span>
                     <span className={badgeClass}>{releaseType}</span>
-                    <time className="text-sm text-text-secondary">
-                      {new Date(String(release.data.date)).toLocaleDateString(
-                        "en-US",
-                        {
+                    {release.date ? (
+                      <time className="text-sm text-text-secondary">
+                        {new Date(release.date).toLocaleDateString("en-US", {
                           year: "numeric",
                           month: "long",
                           day: "numeric",
-                        },
-                      )}
-                    </time>
+                        })}
+                      </time>
+                    ) : null}
                   </div>
 
-                  <h2 className="mb-3 text-base font-semibold text-text-primary">
-                    {release.data.title}
-                  </h2>
+                  {release.summary ? (
+                    <p className="mb-3 text-base text-text-secondary">
+                      {release.summary}
+                    </p>
+                  ) : null}
 
-                  <div className="prose docs-prose max-w-none text-sm leading-relaxed text-text-secondary">
-                    <MdxContent components={mdxComponents} />
+                  <div className="space-y-4 text-sm leading-relaxed text-text-secondary">
+                    {release.sections
+                      .filter((section) => section.items.length > 0)
+                      .map((section) => (
+                      <section key={`${release.version}-${section.title}`}>
+                        <h2 className="mb-2 text-base font-semibold text-text-primary">
+                          {section.title}
+                        </h2>
+                        <ul className="list-disc space-y-1 pl-5">
+                          {section.items.map((item) => (
+                            <li key={item}>{item}</li>
+                          ))}
+                        </ul>
+                      </section>
+                    ))}
                   </div>
                 </div>
               </div>

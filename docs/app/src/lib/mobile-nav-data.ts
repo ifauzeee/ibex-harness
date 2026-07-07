@@ -2,7 +2,7 @@ import type { PageTree } from "fumadocs-core/server";
 
 import { BENCHMARK_NAV_PAGES } from "@/lib/benchmark-page-tree";
 import { pageTreeLabel } from "@/lib/page-tree-label";
-import { blogSource, releasesSource, roadmapSource, source } from "@/lib/source";
+import { blogSource, roadmapSource, source } from "@/lib/source";
 
 export type MobileNavPage = Readonly<{
   kind: "page";
@@ -93,13 +93,7 @@ export function getMobileNavData(): MobileNavData {
       title: String(page.data.title),
     }));
 
-  const releasePages = releasesSource
-    .getPages()
-    .sort((a, b) => postTimestamp(b.data.date) - postTimestamp(a.data.date))
-    .map((page) => ({
-      url: page.url,
-      title: String(page.data.title ?? page.data.version ?? page.url),
-    }));
+  const releasePages = [{ url: "/releases", title: "Changelog" }];
 
   cachedMobileNavData = {
     docsTree: serializeNodes(source.getPageTree().children),

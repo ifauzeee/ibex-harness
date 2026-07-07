@@ -1,7 +1,7 @@
 import { create, insertMultiple, save } from "@orama/orama";
 import { createSearchAPI, type Index } from "fumadocs-core/search/server";
 
-import { blogSource, releasesSource, roadmapSource, source } from "@/lib/source";
+import { blogSource, roadmapSource, source } from "@/lib/source";
 
 type SearchablePage = {
   url: string;
@@ -34,14 +34,24 @@ function toSimpleIndex(page: SearchablePage): Index {
 }
 
 function collectSearchPages(): SearchablePage[] {
+  const staticPages: SearchablePage[] = [
+    {
+      url: "/releases",
+      data: {
+        title: "Releases",
+        description: "Version history and release notes from docs/CHANGELOG.md.",
+      },
+    },
+  ];
+
   return [
     ...source.getPages(),
     ...blogSource.getPages(),
-    ...releasesSource.getPages(),
     ...roadmapSource.getPages(),
+    ...staticPages,
   ]
     .filter((page) => shouldIndexPage(page.url))
-    .map((page) => page as SearchablePage);
+    .map((page) => ({ url: page.url, data: page.data }));
 }
 
 const searchOptions = {
