@@ -50,21 +50,11 @@ export const blog = defineCollections({
   schema: frontmatterSchema.extend({
     date: z.string(),
     author: z.string().optional(),
-    authorUrl: z.string().url().optional(),
+    authorUrl: z.string().optional(),
     tags: z.array(z.string()).optional(),
     excerpt: z.string().optional(),
     readingTime: z.string().optional(),
     featured: z.boolean().optional(),
-  }),
-});
-
-export const releases = defineCollections({
-  type: "doc",
-  dir: "content/releases",
-  schema: frontmatterSchema.extend({
-    version: z.string(),
-    date: z.string(),
-    type: z.enum(["major", "minor", "patch"]).default("patch"),
   }),
 });
 
