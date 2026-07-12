@@ -11,12 +11,22 @@ import (
 	"github.com/Rick1330/ibex-harness/packages/healthcheck"
 	"github.com/Rick1330/ibex-harness/packages/logger"
 	"github.com/Rick1330/ibex-harness/packages/metrics"
+	"github.com/Rick1330/ibex-harness/packages/provider"
 	"github.com/Rick1330/ibex-harness/packages/ratelimit"
 	"github.com/Rick1330/ibex-harness/packages/telemetry"
 	"github.com/Rick1330/ibex-harness/services/proxy/internal/auth"
 	"github.com/Rick1330/ibex-harness/services/proxy/internal/config"
 	"github.com/google/uuid"
 )
+
+func mustEmptyProviderRegistry(tb testing.TB) *provider.Registry {
+	tb.Helper()
+	reg, err := provider.NewRegistry()
+	if err != nil {
+		tb.Fatal(err)
+	}
+	return reg
+}
 
 type passAgentVerifier struct{}
 
@@ -41,26 +51,28 @@ func testHealthServer() *healthcheck.Server {
 	}
 }
 
-func newTestRouter(cfg config.Config, validator auth.TokenValidator, limiter ratelimit.Limiter) http.Handler {
+func newTestRouter(tb testing.TB, cfg config.Config, validator auth.TokenValidator, limiter ratelimit.Limiter) http.Handler {
+	tb.Helper()
 	var agentVerifier auth.AgentVerifier
 	if validator != nil {
 		agentVerifier = passAgentVerifier{}
 	}
 	return NewRouter(RouterDeps{
-		Config:        cfg,
-		Logger:        logger.Discard("proxy"),
-		Metrics:       metrics.NewProxy("test"),
-		Tracer:        telemetry.NoopTracer("proxy"),
-		Validator:     validator,
-		AgentVerifier: agentVerifier,
-		Limiter:       limiter,
-		Health:        testHealthServer(),
+		Config:           cfg,
+		Logger:           logger.Discard("proxy"),
+		Metrics:          metrics.NewProxy("test"),
+		Tracer:           telemetry.NoopTracer("proxy"),
+		Validator:        validator,
+		AgentVerifier:    agentVerifier,
+		Limiter:          limiter,
+		Health:           testHealthServer(),
+		ProviderRegistry: mustEmptyProviderRegistry(tb),
 	})
 }
 
 func TestHealthReturnsOK(t *testing.T) {
 	t.Parallel()
-	router := newTestRouter(config.Config{ServiceName: "proxy"}, nil, nil)
+	router := newTestRouter(t, config.Config{ServiceName: "proxy"}, nil, nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/health", nil)
 	rec := httptest.NewRecorder()
@@ -76,7 +88,7 @@ func TestHealthReturnsOK(t *testing.T) {
 
 func TestReadyMissingDependencies(t *testing.T) {
 	t.Parallel()
-	router := newTestRouter(config.Config{ServiceName: "proxy"}, nil, nil)
+	router := newTestRouter(t, config.Config{ServiceName: "proxy"}, nil, nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/ready", nil)
 	rec := httptest.NewRecorder()

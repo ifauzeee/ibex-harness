@@ -13,6 +13,7 @@ import (
 	"github.com/Rick1330/ibex-harness/packages/logger"
 	ibexmetrics "github.com/Rick1330/ibex-harness/packages/metrics"
 	authv1 "github.com/Rick1330/ibex-harness/packages/proto/gen/go/ibex/auth/v1"
+	"github.com/Rick1330/ibex-harness/packages/provider"
 	"github.com/Rick1330/ibex-harness/packages/ratelimit"
 	"github.com/Rick1330/ibex-harness/packages/shutdown"
 	"github.com/Rick1330/ibex-harness/packages/telemetry"
@@ -34,6 +35,9 @@ func main() {
 func run(args []string) int {
 	return runBootstrap(args, nil)
 }
+
+// providerRegistryInit is overridden in tests to simulate startup registry failures.
+var providerRegistryInit = provider.NewRegistry
 
 func runBootstrap(_ []string, signalCh chan os.Signal) int {
 	cfg, err := config.Load()
@@ -72,15 +76,22 @@ func runBootstrap(_ []string, signalCh chan os.Signal) int {
 		},
 	}
 
+	providerReg, err := providerRegistryInit()
+	if err != nil {
+		log.ErrorCtx(context.Background(), "provider registry init failed", "error", err)
+		return 1
+	}
+
 	deps := proxyhttp.RouterDeps{
-		Config:        cfg,
-		Logger:        log,
-		Metrics:       reg,
-		Tracer:        tracer,
-		Validator:     validator,
-		AgentVerifier: agentVerifier,
-		Limiter:       limiter,
-		Health:        healthSrv,
+		Config:           cfg,
+		Logger:           log,
+		Metrics:          reg,
+		Tracer:           tracer,
+		Validator:        validator,
+		AgentVerifier:    agentVerifier,
+		Limiter:          limiter,
+		Health:           healthSrv,
+		ProviderRegistry: providerReg,
 	}
 	server := newHTTPServer(deps)
 	return runWithShutdown(shutdownOpts{

@@ -18,6 +18,7 @@ import (
 	"github.com/Rick1330/ibex-harness/packages/metrics"
 	"github.com/Rick1330/ibex-harness/packages/permissions"
 	authv1 "github.com/Rick1330/ibex-harness/packages/proto/gen/go/ibex/auth/v1"
+	"github.com/Rick1330/ibex-harness/packages/provider"
 	"github.com/Rick1330/ibex-harness/packages/ratelimit"
 	"github.com/Rick1330/ibex-harness/packages/telemetry"
 	"github.com/Rick1330/ibex-harness/services/auth/integrationtest"
@@ -195,6 +196,10 @@ func startProxyServerRedis(t *testing.T, authAddr string, srvOpts proxyServerOpt
 		DefaultRPM:   defaultRPM,
 		OrgOverrides: orgOverrides,
 	})
+	providerReg, err := provider.NewRegistry()
+	if err != nil {
+		t.Fatalf("provider registry: %v", err)
+	}
 	handler := proxyhttp.NewRouter(proxyhttp.RouterDeps{
 		Config:        cfg,
 		Logger:        logger.Discard("proxy"),
@@ -209,6 +214,7 @@ func startProxyServerRedis(t *testing.T, authAddr string, srvOpts proxyServerOpt
 				"redis":     healthcheck.RedisPing(cfg.RedisURL),
 			},
 		},
+		ProviderRegistry: providerReg,
 	})
 	return httptest.NewServer(handler)
 }

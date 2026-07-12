@@ -10,6 +10,7 @@ import (
 	"github.com/Rick1330/ibex-harness/packages/healthcheck"
 	"github.com/Rick1330/ibex-harness/packages/logger"
 	"github.com/Rick1330/ibex-harness/packages/metrics"
+	"github.com/Rick1330/ibex-harness/packages/provider"
 	"github.com/Rick1330/ibex-harness/packages/ratelimit"
 	"github.com/Rick1330/ibex-harness/packages/telemetry"
 	"github.com/Rick1330/ibex-harness/services/proxy/internal/auth"
@@ -26,14 +27,15 @@ type authProbeResponse struct {
 
 // RouterDeps wires the proxy HTTP handler and middleware chain.
 type RouterDeps struct {
-	Config        config.Config
-	Logger        *logger.Logger
-	Metrics       *metrics.ProxyRegistry
-	Tracer        trace.Tracer
-	Validator     auth.TokenValidator
-	AgentVerifier auth.AgentVerifier
-	Limiter       ratelimit.Limiter
-	Health        *healthcheck.Server
+	Config           config.Config
+	Logger           *logger.Logger
+	Metrics          *metrics.ProxyRegistry
+	Tracer           trace.Tracer
+	Validator        auth.TokenValidator
+	AgentVerifier    auth.AgentVerifier
+	Limiter          ratelimit.Limiter
+	Health           *healthcheck.Server
+	ProviderRegistry *provider.Registry
 }
 
 // NewRouter builds the proxy HTTP handler with optional auth validator for protected routes.
@@ -47,6 +49,14 @@ func NewRouter(deps RouterDeps) http.Handler {
 	cfg.ApplyDefaults()
 	mux := http.NewServeMux()
 	docsBase := cfg.ErrorDocsBase
+	providerReg := deps.ProviderRegistry
+	if providerReg == nil {
+		var regErr error
+		providerReg, regErr = provider.NewRegistry()
+		if regErr != nil {
+			panic("provider registry: " + regErr.Error())
+		}
+	}
 
 	healthSrv := deps.Health
 	if healthSrv == nil {
@@ -58,14 +68,15 @@ func NewRouter(deps RouterDeps) http.Handler {
 
 	if validator != nil {
 		registerProtectedRoutes(protectedRouteDeps{
-			mux:           mux,
-			cfg:           cfg,
-			logger:        logger,
-			reg:           reg,
-			validator:     validator,
-			agentVerifier: agentVerifier,
-			limiter:       limiter,
-			docsBase:      docsBase,
+			mux:              mux,
+			cfg:              cfg,
+			logger:           logger,
+			reg:              reg,
+			validator:        validator,
+			agentVerifier:    agentVerifier,
+			limiter:          limiter,
+			docsBase:         docsBase,
+			providerRegistry: providerReg,
 		})
 	}
 
@@ -120,47 +131,31 @@ func handleAuthProbe(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func handleChatCompletions(w http.ResponseWriter, r *http.Request, log *logger.Logger, docsBase string) {
-	if !requireMethod(w, r, http.MethodPost, docsBase) {
+func handleChatCompletions(w http.ResponseWriter, r *http.Request, h chatCompletionHandler) {
+	h.serve(w, r)
+}
+
+type chatCompletionHandler struct {
+	log         *logger.Logger
+	docsBase    string
+	providerReg *provider.Registry
+}
+
+func (h chatCompletionHandler) serve(w http.ResponseWriter, r *http.Request) {
+	if !requireMethod(w, r, http.MethodPost, h.docsBase) {
 		return
 	}
 	requestID := requestIDFromContext(r.Context())
-	opts := apierror.WriteOpts{DocsBase: docsBase}
 
-	if fieldErrors := validation.ValidateChatHeaders(r.Header); len(fieldErrors) > 0 {
-		apierror.WriteStatus(w, http.StatusBadRequest, apierror.CodeValidationError,
-			"Request validation failed", requestID, apierror.WriteOpts{DocsBase: docsBase, FieldErrors: fieldErrors})
-		return
-	}
-
-	parsed, err := llm.ParseChatCompletionRequest(r.Body)
-	if err != nil {
-		if IsMaxBytesError(err) {
-			apierror.WriteStatus(w, http.StatusRequestEntityTooLarge, apierror.CodePayloadTooLarge,
-				"Request body too large", requestID, opts)
-			return
-		}
-		var maxErr *http.MaxBytesError
-		if errors.As(err, &maxErr) {
-			apierror.WriteStatus(w, http.StatusRequestEntityTooLarge, apierror.CodePayloadTooLarge,
-				"Request body too large", requestID, opts)
-			return
-		}
-		apierror.WriteStatus(w, http.StatusBadRequest, apierror.CodeInvalidJSON,
-			"Malformed JSON in request body", requestID, opts)
-		return
-	}
-
-	if fieldErrors := validation.ValidateChatCompletionRequest(parsed); len(fieldErrors) > 0 {
-		apierror.WriteStatus(w, http.StatusBadRequest, apierror.CodeValidationError,
-			"Request validation failed", requestID, apierror.WriteOpts{DocsBase: docsBase, FieldErrors: fieldErrors})
+	parsed, ok := parseAndValidateChatRequest(w, r, requestID, h.docsBase)
+	if !ok {
 		return
 	}
 
 	ctx := llm.WithChatRequest(r.Context(), parsed)
 
 	if res, ok := auth.FromContext(ctx); ok {
-		log.InfoCtx(ctx, "chat completion parsed",
+		h.log.InfoCtx(ctx, "chat completion parsed",
 			"org_id", res.OrgID,
 			"model", parsed.Model,
 			"message_count", len(parsed.Messages),
@@ -168,9 +163,66 @@ func handleChatCompletions(w http.ResponseWriter, r *http.Request, log *logger.L
 		)
 	}
 
+	if h.providerMissing(w, parsed.Model, requestID) {
+		return
+	}
+
+	writeProviderNotConfigured(w, requestID, h.docsBase, "Phase 2 milestone required for upstream calls")
+}
+
+// parseAndValidateChatRequest parses and validates the chat body.
+// Returns (parsed, true) on success; on failure it writes the appropriate error response and returns (_, false).
+func parseAndValidateChatRequest(w http.ResponseWriter, r *http.Request, requestID, docsBase string) (*llm.ChatCompletionRequest, bool) {
+	if fieldErrors := validation.ValidateChatHeaders(r.Header); len(fieldErrors) > 0 {
+		apierror.WriteStatus(w, http.StatusBadRequest, apierror.CodeValidationError,
+			"Request validation failed", requestID, apierror.WriteOpts{DocsBase: docsBase, FieldErrors: fieldErrors})
+		return nil, false
+	}
+
+	parsed, err := llm.ParseChatCompletionRequest(r.Body)
+	if err != nil {
+		writeChatParseError(w, requestID, docsBase, err)
+		return nil, false
+	}
+
+	if fieldErrors := validation.ValidateChatCompletionRequest(parsed); len(fieldErrors) > 0 {
+		apierror.WriteStatus(w, http.StatusBadRequest, apierror.CodeValidationError,
+			"Request validation failed", requestID, apierror.WriteOpts{DocsBase: docsBase, FieldErrors: fieldErrors})
+		return nil, false
+	}
+
+	return parsed, true
+}
+
+func writeChatParseError(w http.ResponseWriter, requestID, docsBase string, err error) {
+	opts := apierror.WriteOpts{DocsBase: docsBase}
+	if IsMaxBytesError(err) {
+		apierror.WriteStatus(w, http.StatusRequestEntityTooLarge, apierror.CodePayloadTooLarge,
+			"Request body too large", requestID, opts)
+		return
+	}
+	var maxErr *http.MaxBytesError
+	if errors.As(err, &maxErr) {
+		apierror.WriteStatus(w, http.StatusRequestEntityTooLarge, apierror.CodePayloadTooLarge,
+			"Request body too large", requestID, opts)
+		return
+	}
+	apierror.WriteStatus(w, http.StatusBadRequest, apierror.CodeInvalidJSON,
+		"Malformed JSON in request body", requestID, opts)
+}
+
+func writeProviderNotConfigured(w http.ResponseWriter, requestID, docsBase, detail string) {
 	apierror.WriteStatus(w, http.StatusNotImplemented, apierror.CodeProviderNotConfigured,
 		"LLM provider not configured", requestID,
-		apierror.WriteOpts{Detail: "Phase 2 milestone required for upstream calls", DocsBase: docsBase})
+		apierror.WriteOpts{Detail: detail, DocsBase: docsBase})
+}
+
+func (h chatCompletionHandler) providerMissing(w http.ResponseWriter, model, requestID string) bool {
+	if _, err := h.providerReg.For(model); !errors.Is(err, provider.ErrNoProviderForModel) {
+		return false
+	}
+	writeProviderNotConfigured(w, requestID, h.docsBase, "No provider registered for model "+model)
+	return true
 }
 
 func loggingMiddleware(log *logger.Logger, next http.Handler) http.Handler {

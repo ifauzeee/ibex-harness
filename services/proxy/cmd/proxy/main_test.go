@@ -2,12 +2,14 @@ package main
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
 	"github.com/Rick1330/ibex-harness/packages/healthcheck"
 	"github.com/Rick1330/ibex-harness/packages/logger"
 	ibexmetrics "github.com/Rick1330/ibex-harness/packages/metrics"
+	"github.com/Rick1330/ibex-harness/packages/provider"
 	"github.com/Rick1330/ibex-harness/packages/ratelimit"
 	"github.com/Rick1330/ibex-harness/services/proxy/internal/config"
 	proxyhttp "github.com/Rick1330/ibex-harness/services/proxy/internal/http"
@@ -91,9 +93,14 @@ func TestNewHTTPServer(t *testing.T) {
 	t.Parallel()
 	cfg := config.Config{Port: "8080"}
 	cfg.ApplyDefaults()
+	providerReg, err := provider.NewRegistry()
+	if err != nil {
+		t.Fatal(err)
+	}
 	srv := newHTTPServer(proxyhttp.RouterDeps{
 		Config: cfg, Logger: logger.Discard("proxy"), Metrics: ibexmetrics.NewProxy("proxy"),
 		Limiter: ratelimit.Noop(), Health: &healthcheck.Server{},
+		ProviderRegistry: providerReg,
 	})
 	if srv.Addr != ":8080" {
 		t.Fatalf("addr: %s", srv.Addr)
@@ -122,6 +129,20 @@ func TestRun_InvalidOTELSampleRatioReturns1(t *testing.T) {
 func TestRun_InvalidRedisURLReturns1(t *testing.T) {
 	t.Setenv("IBEX_ENV", "development")
 	t.Setenv("REDIS_URL", "not-a-redis-url")
+	if got := run(nil); got != 1 {
+		t.Fatalf("run() = %d, want 1", got)
+	}
+}
+
+func TestRun_ProviderRegistryInitFailureReturns1(t *testing.T) {
+	orig := providerRegistryInit
+	t.Cleanup(func() { providerRegistryInit = orig })
+	providerRegistryInit = func(...provider.Provider) (*provider.Registry, error) {
+		return nil, errors.New("registry init failed")
+	}
+	t.Setenv("IBEX_ENV", "development")
+	t.Setenv("REDIS_URL", "")
+	t.Setenv("IBEX_AUTH_GRPC_ADDR", "")
 	if got := run(nil); got != 1 {
 		t.Fatalf("run() = %d, want 1", got)
 	}
