@@ -9,27 +9,46 @@ import (
 	"github.com/google/uuid"
 )
 
+const errMsgInvalidTCPPort = "IBEX_PORT must be a valid TCP port"
+
+func runValidationSteps(steps ...func() error) error {
+	for _, step := range steps {
+		if err := step(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (c Config) Validate() error {
-	if err := c.validateEnvironment(); err != nil {
-		return err
+	return runValidationSteps(
+		c.validateEnvironment,
+		c.validateHTTPHeaders,
+		c.validateRateLimit,
+		c.validateLLMConfig,
+	)
+}
+
+func (c Config) validateLLMConfig() error {
+	mode := strings.ToLower(strings.TrimSpace(c.LLMMode))
+	switch mode {
+	case "mock", "live":
+	default:
+		return fmt.Errorf("IBEX_LLM_MODE must be mock or live")
 	}
-	if err := c.validateHTTPHeaders(); err != nil {
-		return err
+	if mode == "live" && strings.TrimSpace(c.OpenAI.APIKey) == "" {
+		return fmt.Errorf("OPENAI_API_KEY is required when IBEX_LLM_MODE=live")
 	}
-	return c.validateRateLimit()
+	return nil
 }
 
 func (c Config) validateEnvironment() error {
-	if err := c.validateEnvName(); err != nil {
-		return err
-	}
-	if err := c.validatePort(); err != nil {
-		return err
-	}
-	if err := c.validateAuthConfig(); err != nil {
-		return err
-	}
-	return c.validateBodyLimit()
+	return runValidationSteps(
+		c.validateEnvName,
+		c.validatePort,
+		c.validateAuthConfig,
+		c.validateBodyLimit,
+	)
 }
 
 func (c Config) validateEnvName() error {
@@ -51,13 +70,10 @@ func (c Config) validatePort() error {
 func validateTCPPort(port string) error {
 	portNum, err := strconv.Atoi(port)
 	if err != nil {
-		return fmt.Errorf("IBEX_PORT must be a valid TCP port")
+		return fmt.Errorf("%s", errMsgInvalidTCPPort)
 	}
-	if portNum < 1 {
-		return fmt.Errorf("IBEX_PORT must be a valid TCP port")
-	}
-	if portNum > 65535 {
-		return fmt.Errorf("IBEX_PORT must be a valid TCP port")
+	if portNum < 1 || portNum > 65535 {
+		return fmt.Errorf("%s", errMsgInvalidTCPPort)
 	}
 	return nil
 }

@@ -163,11 +163,26 @@ func (h chatCompletionHandler) serve(w http.ResponseWriter, r *http.Request) {
 		)
 	}
 
-	if h.providerMissing(w, parsed.Model, requestID) {
+	if parsed.Stream {
+		writeStreamingNotSupported(w, requestID, h.docsBase)
 		return
 	}
 
-	writeProviderNotConfigured(w, requestID, h.docsBase, "Phase 2 milestone required for upstream calls")
+	prov, err := h.providerReg.For(parsed.Model)
+	if err != nil {
+		if errors.Is(err, provider.ErrNoProviderForModel) {
+			writeProviderNotConfigured(w, requestID, h.docsBase, "No provider registered for model "+parsed.Model)
+			return
+		}
+		apierror.WriteStatus(w, http.StatusInternalServerError, apierror.CodeServiceDegraded,
+			"Internal error", requestID,
+			apierror.WriteOpts{Detail: "provider registry lookup failed", DocsBase: h.docsBase})
+		return
+	}
+
+	h.forwardChatCompletion(chatForwardParams{
+		w: w, r: r, parsed: parsed, prov: prov,
+	})
 }
 
 // parseAndValidateChatRequest parses and validates the chat body.
@@ -215,14 +230,6 @@ func writeProviderNotConfigured(w http.ResponseWriter, requestID, docsBase, deta
 	apierror.WriteStatus(w, http.StatusNotImplemented, apierror.CodeProviderNotConfigured,
 		"LLM provider not configured", requestID,
 		apierror.WriteOpts{Detail: detail, DocsBase: docsBase})
-}
-
-func (h chatCompletionHandler) providerMissing(w http.ResponseWriter, model, requestID string) bool {
-	if _, err := h.providerReg.For(model); !errors.Is(err, provider.ErrNoProviderForModel) {
-		return false
-	}
-	writeProviderNotConfigured(w, requestID, h.docsBase, "No provider registered for model "+model)
-	return true
 }
 
 func loggingMiddleware(log *logger.Logger, next http.Handler) http.Handler {

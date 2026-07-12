@@ -2,7 +2,7 @@
 title: "2.1.2 Openai NON"
 description: "With the `Provider` interface defined in 2.1.1, this milestone delivers the first concrete implementation: the OpenAI HTTP client for non-streaming completions. \\\"Non-streaming\\\" first is deliberate — streaming adds buffering, SSE parsing, and dual-write complexity (milestone 2.1.3). Getting non-streaming right first giv"
 summary: "With the `Provider` interface defined in 2.1.1, this milestone delivers the first concrete implementation: the OpenAI HTTP client for non-streaming completions. \\\"Non-streaming\\\" first is deliberate — streaming adds buffering, SSE parsing, and dual-write complexity (milestone 2.1.3). Getting non-streaming right first giv"
-status: "planned"
+status: "complete"
 milestoneId: "2.1.2"
 goal: "[2.1 — LLM provider abstraction and OpenAI forwarding](/roadmap/phase-2-single-provider/goals#goal-21-llm-provider-abstraction-and-openai-forwarding)"
 estimatedEffort: "3–4 days"
@@ -12,7 +12,7 @@ fullTitle: "Milestone 2.1.2 — OpenAI HTTP Client (Non-Streaming)"
 
 # Milestone 2.1.2 — OpenAI HTTP Client (Non-Streaming)
 
-**Status:** Planned  
+**Status:** Complete  
 **Goal:** [2.1 — LLM provider abstraction and OpenAI forwarding](/roadmap/phase-2-single-provider/goals#goal-21-llm-provider-abstraction-and-openai-forwarding)  
 **Phase:** 2 — Single Provider End-to-End  
 **Estimated effort:** 3–4 days  
@@ -98,7 +98,7 @@ type Client struct {
 
 // New constructs an OpenAI Client with a shared http.Client (connection pooling).
 // Call once at service startup; the Client is safe for concurrent use.
-func New(cfg Config, log *logger.Logger, tracer trace.Tracer) *Client
+func New(cfg Config, log *logger.Logger, tracer trace.Tracer, metrics Metrics) *Client
 
 func (c *Client) Name() string          { return "openai" }
 func (c *Client) SupportedModels() []string {
@@ -127,12 +127,11 @@ func (c *Client) SupportedModels() []string {
 
 ```go
 // toOpenAIRequest translates a provider.Request to the OpenAI chat completions format.
-// Directive injection: if req.SystemDirective is set, it is prepended as the first
-// system message. Existing system messages follow it.
-func toOpenAIRequest(req provider.Request) openAIRequest
+// Directive injection is deferred to milestone 2.3.3; see ADR-0025.
+func toOpenAIRequest(req provider.Request) (openAIRequest, error)
 
 // openAIRequest mirrors the OpenAI chat completions request schema.
-// Only fields supported in Phase 2 are included; PassthroughFields are merged in.
+// PassthroughFields merge permitted client fields; model/messages/stream cannot be overridden.
 type openAIRequest struct {
     Model       string           `json:"model"`
     Messages    []openAIMessage  `json:"messages"`
@@ -166,7 +165,7 @@ httpClient := &http.Client{
 All tests use a mock HTTP server (`httptest.NewServer`) — no real OpenAI API calls in unit or integration tests.
 
 - **`TestOpenAIClient_NonStreaming_Success`**: mock returns 200 with valid completion JSON → `Response.Body` readable, `Usage` populated
-- **`TestOpenAIClient_DirectiveInjection`**: request with `SystemDirective` set → first message in outgoing body has `role="system"` with directive content
+- **`TestOpenAIClient_DirectiveInjection`** *(deferred to [milestone 2.3.3](/roadmap/phase-2-single-provider/milestones/2.3.3-system-prompt-injection))*: request with `SystemDirective` set → first message in outgoing body has `role="system"` with directive content
 - **`TestOpenAIClient_Retry_On429`**: mock returns 429 twice then 200 → client retries, final result is success, retry count metric incremented
 - **`TestOpenAIClient_NoRetry_On400`**: mock returns 400 → client does NOT retry, returns `INVALID_REQUEST` error immediately
 - **`TestOpenAIClient_Timeout`**: mock delays beyond `Timeout` → `PROVIDER_TIMEOUT` error
@@ -177,14 +176,14 @@ All tests use a mock HTTP server (`httptest.NewServer`) — no real OpenAI API c
 
 ## Acceptance Criteria
 
-- [ ] `packages/provider/openai.Client` implements `packages/provider.Provider`
-- [ ] Non-streaming requests return correct provider response
-- [ ] Directive is injected as first system message when set
-- [ ] Retry policy retries on 429/5xx with exponential backoff + jitter
-- [ ] No retry on 4xx client errors
-- [ ] API key is never logged (enforced by test)
-- [ ] Connection pooling: single shared `http.Client`, not one per request
-- [ ] All provider errors mapped to IBEX error codes before returning to handler
-- [ ] ADR-0026 written and indexed
+- [x] `packages/provider/openai.Client` implements `packages/provider.Provider`
+- [x] Non-streaming requests return correct provider response
+- [ ] Directive is injected as first system message when set (deferred to milestone 2.3.3)
+- [x] Retry policy retries on 429/5xx with exponential backoff + jitter
+- [x] No retry on 4xx client errors
+- [x] API key is never logged (enforced by test)
+- [x] Connection pooling: single shared `http.Client`, not one per request
+- [x] All provider errors mapped to IBEX error codes before returning to handler
+- [x] ADR-0026 written and indexed
 
 ---

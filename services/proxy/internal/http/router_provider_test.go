@@ -3,10 +3,12 @@ package http
 import (
 	"context"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	apierror "github.com/Rick1330/ibex-harness/packages/apierror"
 	"github.com/Rick1330/ibex-harness/packages/logger"
@@ -22,10 +24,22 @@ import (
 type stubLLMProvider struct {
 	name   string
 	models []string
+	body   string
+	err    error
 }
 
 func (s stubLLMProvider) Complete(_ context.Context, _ provider.Request) (provider.Response, error) {
-	return provider.Response{}, nil
+	if s.err != nil {
+		return provider.Response{}, s.err
+	}
+	body := s.body
+	if body == "" {
+		body = `{"choices":[{"message":{"role":"assistant","content":"ok"}}]}`
+	}
+	return provider.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(strings.NewReader(body)),
+	}, nil
 }
 
 func (s stubLLMProvider) Name() string { return s.name }
@@ -53,9 +67,12 @@ func TestUnit_NewRouter_nilProviderRegistryUsesEmptyRegistry(t *testing.T) {
 	if rec.Code != http.StatusNotImplemented {
 		t.Fatalf("status: %d body=%s", rec.Code, rec.Body.String())
 	}
+	if !strings.Contains(rec.Body.String(), string(apierror.CodeProviderNotConfigured)) {
+		t.Fatalf("body: %s", rec.Body.String())
+	}
 }
 
-func TestUnit_ChatCompletions_registeredProviderReturns501UntilForwarding(t *testing.T) {
+func TestUnit_ChatCompletions_registeredProviderForwardsResponse(t *testing.T) {
 	t.Parallel()
 	reg, err := provider.NewRegistry(stubLLMProvider{name: "openai", models: []string{"gpt-4o"}})
 	if err != nil {
@@ -79,14 +96,90 @@ func TestUnit_ChatCompletions_registeredProviderReturns501UntilForwarding(t *tes
 		auth:    true,
 		agentID: testChatAgentID,
 	})
-	if rec.Code != http.StatusNotImplemented {
+	if rec.Code != http.StatusOK {
 		t.Fatalf("status: %d body=%s", rec.Code, rec.Body.String())
 	}
-	if !strings.Contains(rec.Body.String(), string(apierror.CodeProviderNotConfigured)) {
+	if !strings.Contains(rec.Body.String(), "assistant") {
 		t.Fatalf("body: %s", rec.Body.String())
 	}
-	if !strings.Contains(rec.Body.String(), "Phase 2 milestone required for upstream calls") {
-		t.Fatalf("expected forwarding stub detail, body: %s", rec.Body.String())
+}
+
+func TestUnit_ChatCompletions_providerErrorMapsToHTTPStatus(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		provErr    error
+		wantStatus int
+		wantCode   apierror.Code
+	}{
+		{
+			name:       "provider 400",
+			provErr:    &provider.ProviderError{StatusCode: http.StatusBadRequest, ProviderErrMsg: "bad field"},
+			wantStatus: http.StatusBadRequest,
+			wantCode:   apierror.CodeInvalidRequest,
+		},
+		{
+			name: "provider 429",
+			provErr: &provider.ProviderError{
+				StatusCode: http.StatusTooManyRequests,
+				RetryAfter: 30 * time.Second,
+			},
+			wantStatus: http.StatusTooManyRequests,
+			wantCode:   apierror.CodeRateLimited,
+		},
+		{
+			name:       "provider timeout",
+			provErr:    context.DeadlineExceeded,
+			wantStatus: http.StatusGatewayTimeout,
+			wantCode:   apierror.CodeProviderTimeout,
+		},
+		{
+			name:       "provider unavailable",
+			provErr:    errors.New("connection refused"),
+			wantStatus: http.StatusServiceUnavailable,
+			wantCode:   apierror.CodeProviderUnavailable,
+		},
+	}
+
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			reg, err := provider.NewRegistry(stubLLMProvider{
+				name: "openai", models: []string{"gpt-4o"}, err: tc.provErr,
+			})
+			if err != nil {
+				t.Fatalf("NewRegistry: %v", err)
+			}
+
+			handler := NewRouter(RouterDeps{
+				Config:           chatTestConfig(),
+				Logger:           logger.Discard("proxy"),
+				Metrics:          metrics.NewProxy("test"),
+				Tracer:           telemetry.NoopTracer("proxy"),
+				Validator:        defaultChatValidator(),
+				AgentVerifier:    passAgentVerifier{},
+				Limiter:          ratelimit.Noop(),
+				Health:           testHealthServer(),
+				ProviderRegistry: reg,
+			})
+
+			rec := postChat(t, handler, chatRequestOpts{
+				body:    `{"model":"gpt-4o","messages":[{"role":"user","content":"hi"}]}`,
+				auth:    true,
+				agentID: testChatAgentID,
+			})
+			if rec.Code != tc.wantStatus {
+				t.Fatalf("status: got %d want %d body=%s", rec.Code, tc.wantStatus, rec.Body.String())
+			}
+			if !strings.Contains(rec.Body.String(), string(tc.wantCode)) {
+				t.Fatalf("body: %s", rec.Body.String())
+			}
+			if tc.wantCode == apierror.CodeRateLimited && rec.Header().Get("Retry-After") != "30" {
+				t.Fatalf("retry-after: %q", rec.Header().Get("Retry-After"))
+			}
+		})
 	}
 }
 
