@@ -2,7 +2,7 @@
 title: "d6.3 Cross Site"
 description: "Landing, docs, blog, and benchmarks share one deploy at ibexharness.com. Legacy docs.ibexharness.com 301s to apex paths. Single sitemap and internal nav — no cross-domain dead ends."
 summary: "Unified product site at ibexharness.com with landing at / and docs at /docs. docs.ibexharness.com redirects to apex."
-status: "in-progress"
+status: "completed"
 milestoneId: "d6.3"
 goal: "[D.6](/roadmap/phase-1-5-docs-site/goals)"
 estimatedEffort: "1 hour"
@@ -12,7 +12,7 @@ fullTitle: "Milestone D.6.3 — Cross-site nav + sitemaps"
 
 # Milestone D.6.3 — Cross-site nav + sitemaps
 
-**Status:** In progress (unified-domain landing migration)  
+**Status:** Complete (unified-domain landing migration)  
 **Goal:** [D.6](/roadmap/phase-1-5-docs-site/goals)  
 **Phase:** 1.5 — Docs Site  
 **Wave:** 12  
@@ -60,7 +60,7 @@ Final launch milestone before Phase 2.1.1 unblocks.
 
 ## Deliverables
 
-- ASCII/video landing page at `/` (guide implementation in `docs/app`)
+- ASCII/video landing page at `/` (guide implementation in `web`)
 - Canonical `SITE_URL` = `https://ibexharness.com`; sitemap includes `/`
 - Home nav internal link to `/`; docs/blog/benchmarks unchanged
 - Private ops runbook (outside repo) for Cloudflare Pages apex attach
@@ -73,17 +73,17 @@ Final launch milestone before Phase 2.1.1 unblocks.
 
 | File Path | Action | Notes |
 | --- | --- | --- |
-| `docs/app/src/app/page.tsx` | Add | Unified homepage |
-| `docs/app/src/components/landing/*` | Add | Video, ASCII, reveal |
-| `docs/app/src/lib/site-seo.ts` | Modify | Apex canonical URL |
+| `web/src/app/page.tsx` | Add | Unified homepage |
+| `web/src/components/landing/*` | Add | Video, ASCII, reveal |
+| `web/src/lib/site-seo.ts` | Modify | Apex canonical URL |
 | Ops runbook (private) | Add | Apex DNS attach |
-| `.github/scripts/docs-smoke.sh` | Modify | `/` landing check |
+| `.github/scripts/web-smoke.sh` | Modify | `/` landing check |
 
 ---
 
 ## Testing Requirements
 
-- **`docs-smoke.sh`**: `/` returns 200 and contains `ibex-landing`
+- **`web-smoke.sh`**: `/` returns 200 and contains `ibex-landing`
 - **Unit**: `site-nav-links` Home href is `/`
 - **`pnpm build:clean`**: static export includes `/`
 
@@ -91,11 +91,11 @@ Final launch milestone before Phase 2.1.1 unblocks.
 
 ## Acceptance Criteria
 
-- [ ] `https://ibexharness.com/` serves landing page
-- [ ] `https://ibexharness.com/docs/...` serves docs (unchanged)
-- [ ] Nav Home/logo links to `/` (internal)
-- [ ] `docs.ibexharness.com/*` 301s to apex (post-cutover)
-- [ ] `verify_phase15.sh` / `docs-smoke.sh` pass against production
+- [x] `https://ibexharness.com/` serves landing page
+- [x] `https://ibexharness.com/docs/...` serves docs (unchanged)
+- [x] Nav Home/logo links to `/` (internal)
+- [x] `docs.ibexharness.com/*` 301s to apex (post-cutover)
+- [x] `verify_phase15.sh` passes against production (`make verify-phase15`)
 
 ---
 
