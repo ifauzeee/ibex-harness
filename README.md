@@ -44,3 +44,4 @@ make db-seed
 - **Architecture**: `web/engineering/ARCHITECTURE.md`
 - **Environment variables**: `web/engineering/ENVIRONMENT_VARIABLES.md`
 - **Contributing**: `CONTRIBUTING.md`
+- **OpenSSF Best Practices**: `web/engineering/OPENSSF_BEST_PRACTICES.md`
