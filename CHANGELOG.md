@@ -12,6 +12,14 @@ Release notes are human-readable summaries of user-visible changes, security fix
 
 ---
 
+## [0.1.1](https://github.com/Rick1330/ibex-harness/compare/v0.1.0...v0.1.1) (2026-07-13)
+
+
+### Bug Fixes
+
+* **ci:** repair Tagged Release workflow_dispatch startup ([#240](https://github.com/Rick1330/ibex-harness/issues/240)) ([3973c83](https://github.com/Rick1330/ibex-harness/commit/3973c839796f59370d36bcf95134f969e84af293))
+* **ci:** run version release on merge to create release tag ([#238](https://github.com/Rick1330/ibex-harness/issues/238)) ([b9cd249](https://github.com/Rick1330/ibex-harness/commit/b9cd249197c6d0cb940d9ce564b555d91d1c907c))
+
 ## 0.1.0 (2026-07-13)
 
 
