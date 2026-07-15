@@ -57,6 +57,69 @@ func TestWrite_envelopeShape(t *testing.T) {
 	}
 }
 
+func TestWriteJSON_envelopeFields(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		name      string
+		status    int
+		code      apierror.Code
+		message   string
+		detail    string
+		requestID string
+	}{
+		{
+			name:      "empty detail",
+			status:    http.StatusBadRequest,
+			code:      apierror.CodeInvalidJSON,
+			message:   "Request body is not valid JSON",
+			detail:    "",
+			requestID: "req-empty",
+		},
+		{
+			name:      "non-empty detail",
+			status:    http.StatusUnauthorized,
+			code:      apierror.CodeMissingToken,
+			message:   "Authorization header required",
+			detail:    "The request must include an Authorization header",
+			requestID: "req-detail",
+		},
+		{
+			name:      "known error code",
+			status:    http.StatusTooManyRequests,
+			code:      apierror.CodeRateLimited,
+			message:   "Rate limit exceeded",
+			detail:    "",
+			requestID: "req-rate",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			rec := httptest.NewRecorder()
+			apierror.WriteJSON(rec, tc.status, tc.code, tc.message, tc.detail, tc.requestID)
+
+			var body apierror.Response
+			if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+				t.Fatalf("unmarshal: %v", err)
+			}
+			if body.Error.Code != tc.code {
+				t.Fatalf("code: got %q want %q", body.Error.Code, tc.code)
+			}
+			if body.Error.Message != tc.message {
+				t.Fatalf("message: got %q want %q", body.Error.Message, tc.message)
+			}
+			if body.Error.RequestID != tc.requestID {
+				t.Fatalf("request_id: got %q want %q", body.Error.RequestID, tc.requestID)
+			}
+			if rec.Code != tc.status {
+				t.Fatalf("http status: got %d want %d", rec.Code, tc.status)
+			}
+			if body.Error.Timestamp.IsZero() {
+				t.Fatal("expected timestamp")
+			}
+		})
+	}
+}
+
 func TestWrite_fieldErrorsAndDocsURL(t *testing.T) {
 	t.Parallel()
 	rec := httptest.NewRecorder()
