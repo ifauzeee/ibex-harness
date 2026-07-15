@@ -51,6 +51,18 @@ Before granting **admin**, **maintain**, or **Actions secrets** access to a new 
 
 ---
 
+## 3.1) Access continuity (solo maintenance)
+
+Today the project has a **single human maintainer**. To reduce lockout risk if the lead is unavailable:
+
+1. **GitHub:** Enable MFA; keep recovery codes offline; add a successor’s GitHub account as a collaborator with **Admin** only when succession is activated (tracked by issue first — see §3).
+2. **Secrets lockbox:** Production secrets (Cloudflare Pages token, any deploy tokens) are stored only in GitHub Actions secrets and a personal password manager vault labeled `ibex-harness-ops`. Document the vault location offline for the designated successor (not in this repo).
+3. **Cloudflare:** Account recovery email must be an address the project lead controls; token recreation steps live outside git in `ibex-r/cloudflare-pages-token-setup.md` (maintainer workspace).
+4. **OpenSSF badge:** Project ownership on bestpractices.dev stays with the project lead; transfer via BadgeApp permissions when a co-maintainer joins.
+5. **Bus factor:** Pre-1.0, the intentional bus factor is 1. Team mode (≥1 required PR approval) is defined in ADR-0003 and will be enabled when a second maintainer is onboarded.
+
+---
+
 ## 4) Public discussion and contribution
 
 | Channel | Purpose |
@@ -74,6 +86,14 @@ The project maintains a living security assessment:
 
 Formal threat-modeling workshops (OSPS-SA-03.02) are scheduled for Phase 5 production hardening; the documented threat model in SECURITY.md §3 is the current baseline.
 
+### Security review record (OpenSSF Gold `security_review`)
+
+| Date | Scope | Outcome |
+| --- | --- | --- |
+| 2026-07-15 | Reviewed SECURITY.md threat model (§3), security objectives (§2), CI gates (ADR-0008), and assurance case mapping | Accepted as current baseline; residual risks listed in [ASSURANCE_CASE.md](./ASSURANCE_CASE.md) §5 |
+
+Re-review at least every 12 months or after a major auth/tenant design change.
+
 ---
 
 ## 6) Vulnerability disclosure and publication (OSPS-VM-04.01)
@@ -92,3 +112,4 @@ VEX feeds for non-affecting component vulnerabilities (OSPS-VM-04.02) are planne
 - [OPENSSF_BEST_PRACTICES.md](./OPENSSF_BEST_PRACTICES.md) — badge evidence map
 - [RELEASING.md](./RELEASING.md) — release integrity and support policy
 - [SECURITY.md](./SECURITY.md) — threat model and security controls
+- [ASSURANCE_CASE.md](./ASSURANCE_CASE.md) — security claims and evidence map

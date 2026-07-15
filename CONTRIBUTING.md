@@ -166,11 +166,19 @@ make coverage-gate
 
 CI/security config changes: use [prompts/20-security-ci-audit.txt](prompts/20-security-ci-audit.txt).
 
+## Good first issues
+
+Want a small first contribution? Look for issues labeled [**good first issue**](https://github.com/Rick1330/ibex-harness/labels/good%20first%20issue) or [**help wanted**](https://github.com/Rick1330/ibex-harness/labels/help%20wanted).
+
+Typical starter work: docs typos, markdown/examples, small test additions, CONTRIBUTING clarifications. Follow the PR-only workflow and DCO sign-off above.
+
 ## Testing policy
 
 IBEX Harness requires automated tests for behavior changes. This satisfies our [OpenSSF Best Practices](web/engineering/OPENSSF_BEST_PRACTICES.md) enrollment and is enforced in review.
 
 **Policy:** When you add or materially change production behavior (handlers, stores, auth, proxy routing, security boundaries), add or extend tests in the same PR. Prefer the test pyramid in [web/engineering/TESTING_STRATEGY.md](web/engineering/TESTING_STRATEGY.md): unit tests for logic, integration tests for DB/Redis contracts, E2E only for user journeys.
+
+**Bugfixes:** At least half of production bugfix PRs must include a regression test ([TESTING_STRATEGY.md §11.1](web/engineering/TESTING_STRATEGY.md#111-regression-tests-on-bugfixes)).
 
 **How to run tests locally:**
 
