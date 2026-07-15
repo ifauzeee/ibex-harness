@@ -9,13 +9,13 @@ OpenSSF Scorecard’s [CII-Best-Practices check](https://github.com/ossf/scoreca
 | **Passing** (CII) | **Earned** | [passing/edit](https://www.bestpractices.dev/en/projects/13590/passing/edit) |
 | **Baseline Level 1** | **Earned** | [baseline-1/edit](https://www.bestpractices.dev/en/projects/13590/baseline-1/edit) |
 | **Baseline Level 2** | **Earned** | [baseline-2/edit](https://www.bestpractices.dev/en/projects/13590/baseline-2/edit) |
-| **Baseline Level 3** | **Earned** | [baseline-3/edit](https://www.bestpractices.dev/en/projects/13590/baseline-3/edit) |
+| **Baseline Level 3** | **Earned on BadgeApp** (2 documented Unmet: OSPS-QA-07.01, OSPS-VM-04.02) | [baseline-3/edit](https://www.bestpractices.dev/en/projects/13590/baseline-3/edit) |
 | **Silver** (CII) | In progress | [silver/edit](https://www.bestpractices.dev/en/projects/13590/silver/edit) |
 | **Gold** (CII) | In progress | [gold/edit](https://www.bestpractices.dev/en/projects/13590/gold/edit) |
 
 **Maintainer-only working material (not in git, not primary evidence):** local `ibex-r/baseline-form-*.md`, `ibex-r/silver-form.md`, `ibex-r/gold-form.md`, and `ibex-r/scorecard-form.md`. Cite only repository files below when answering badge criteria.
 
-**Note:** Passing may still show ~99% on the BadgeApp API until the last Passing criterion / `achieve_passing` save is confirmed. Baseline L1–L3 show 100% on the project JSON. One README **Baseline** badge covers all baseline levels (`/projects/13590/baseline`).
+**Note:** Passing may still show ~99% on the BadgeApp API until the last Passing criterion / `achieve_passing` save is confirmed. Baseline L1–L2 show 100%; L3 is 100% on BadgeApp with intentional documented Unmet for solo approvals (OSPS-QA-07.01) and missing VEX (OSPS-VM-04.02) — see Level 3 table below. One README **Baseline** badge covers all baseline levels (`/projects/13590/baseline`).
 
 ## README badges
 

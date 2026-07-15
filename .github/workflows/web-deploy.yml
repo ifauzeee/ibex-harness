@@ -75,7 +75,7 @@ jobs:
           set -euo pipefail
           body="$(curl -sS -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
             https://api.cloudflare.com/client/v4/user/tokens/verify || true)"
-          if ! echo "$body" | grep -q '"success":true'; then
+          if ! echo "$body" | jq -e '.success == true' >/dev/null 2>&1; then
             echo "::error::CLOUDFLARE_API_TOKEN failed verification (Auth error 10000)."
             echo "Create a Custom Token with Account→Cloudflare Pages:Edit and Account→Account Settings:Read,"
             echo "then update the GitHub Actions secret. See maintainer guide: ibex-r/cloudflare-pages-token-setup.md"

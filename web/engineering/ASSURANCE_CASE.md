@@ -40,11 +40,11 @@ Trusted for Phase 1 ops: maintainers with MFA, GitHub Actions OIDC for release s
 
 | Claim | Argument | Evidence |
 | --- | --- | --- |
-| C1 | Dual enforcement: app-layer org_id + SQL RLS; cross-org returns 403 | [SECURITY.md](./SECURITY.md) §2–5; `TestSecurity_SEC*` in proxy integration tests; [ADR-0016](../content/docs/adr/0016-rls-tenant-isolation.mdx) |
-| C2 | Explicit fail-closed for auth/isolation; quality degrades separately | SECURITY.md §15; apierror envelope |
-| C3 | Logging policy + gitleaks in CI; package logger forbids secrets | SECURITY.md §6; `.gitleaks.toml`; [ADR-0008](../content/docs/adr/0008-security-ci-gates.mdx) |
-| C4 | OSV, Trivy, govulncheck, CodeQL, Semgrep, Dependabot | [DEPENDENCIES.md](./DEPENDENCIES.md) §9; ci.yml security gates |
-| C5 | ADR-0010 forbids MD5/SHA-1 for security; TLS via platform + Go defaults | [ADR-0010](../content/docs/adr/0010-cryptography-policy.mdx); SECURITY.md §6 |
+| C1 | Dual enforcement: app-layer org_id + SQL RLS; Redis keys namespaced by org_id; cross-org returns 403 | [SECURITY.md §5.1–5.3](./SECURITY.md#5-multi-tenancy-isolation-defense-in-depth) (RLS + Redis `{org_id}:…` namespaces); `TestSecurity_SEC*`; [ADR-0016](../content/docs/adr/0016-rls-tenant-isolation.mdx) |
+| C2 | Explicit fail-closed for auth/isolation; quality degrades separately | [SECURITY.md §15](./SECURITY.md#15-fail-closed-vs-fail-open-rules); apierror envelope |
+| C3 | Logging policy + gitleaks in CI; package logger forbids secrets | [SECURITY.md §6](./SECURITY.md#6-data-protection-encryption-secrets-key-management); `.gitleaks.toml`; [ADR-0008](../content/docs/adr/0008-security-ci-gates.mdx) |
+| C4 | Continuous SCA/SAST; CRITICAL findings block merge; no release with open CRITICAL without waiver | [DEPENDENCIES.md §9.0.1](./DEPENDENCIES.md#901-sca-remediation-thresholds-osps-vm-05010503) (OSV/Trivy/govulncheck gates + pre-release rule); ci.yml security jobs |
+| C5 | Approved crypto only: Argon2id hashing; TLS ≥ 1.2 (policy prefers 1.3 externally); no MD5/SHA-1 for security | [SECURITY.md §6.1](./SECURITY.md#61-encryption-in-transit) + [§6.4](./SECURITY.md#64-cryptographic-standards-approved-algorithms) (TLS / Argon2id); [ADR-0010](../content/docs/adr/0010-cryptography-policy.mdx) |
 
 ---
 

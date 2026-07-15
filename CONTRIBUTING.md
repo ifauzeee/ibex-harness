@@ -168,10 +168,7 @@ CI/security config changes: use [prompts/20-security-ci-audit.txt](prompts/20-se
 
 ## Good first issues
 
-Want a small first contribution? Look for issues labeled **`good first issue`** or **`help wanted`**:
-
-- https://github.com/Rick1330/ibex-harness/labels/good%20first%20issue
-- https://github.com/Rick1330/ibex-harness/labels/help%20wanted
+Want a small first contribution? Look for issues labeled [**good first issue**](https://github.com/Rick1330/ibex-harness/labels/good%20first%20issue) or [**help wanted**](https://github.com/Rick1330/ibex-harness/labels/help%20wanted).
 
 Typical starter work: docs typos, markdown/examples, small test additions, CONTRIBUTING clarifications. Follow the PR-only workflow and DCO sign-off above.
 
