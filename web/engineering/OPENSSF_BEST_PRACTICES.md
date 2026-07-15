@@ -8,10 +8,14 @@ OpenSSF Scorecard’s [CII-Best-Practices check](https://github.com/ossf/scoreca
 | --- | --- | --- |
 | **Passing** (CII) | **Earned** | [passing/edit](https://www.bestpractices.dev/en/projects/13590/passing/edit) |
 | **Baseline Level 1** | **Earned** | [baseline-1/edit](https://www.bestpractices.dev/en/projects/13590/baseline-1/edit) |
-| **Baseline Level 2** | In progress | [baseline-2/edit](https://www.bestpractices.dev/en/projects/13590/baseline-2/edit) |
-| **Baseline Level 3** | In progress | [baseline-3/edit](https://www.bestpractices.dev/en/projects/13590/baseline-3/edit) |
+| **Baseline Level 2** | **Earned** | [baseline-2/edit](https://www.bestpractices.dev/en/projects/13590/baseline-2/edit) |
+| **Baseline Level 3** | **Earned** | [baseline-3/edit](https://www.bestpractices.dev/en/projects/13590/baseline-3/edit) |
+| **Silver** (CII) | In progress | [silver/edit](https://www.bestpractices.dev/en/projects/13590/silver/edit) |
+| **Gold** (CII) | In progress | [gold/edit](https://www.bestpractices.dev/en/projects/13590/gold/edit) |
 
-**Maintainer-only working material (not in git, not primary evidence):** local `ibex-r/baseline-form-*.md` and `ibex-r/scorecard-form.md` are copy-paste helpers for filling bestpractices.dev. Cite only repository files below when answering badge criteria.
+**Maintainer-only working material (not in git, not primary evidence):** local `ibex-r/baseline-form-*.md`, `ibex-r/silver-form.md`, `ibex-r/gold-form.md`, and `ibex-r/scorecard-form.md`. Cite only repository files below when answering badge criteria.
+
+**Note:** Passing may still show ~99% on the BadgeApp API until the last Passing criterion / `achieve_passing` save is confirmed. Baseline L1–L3 show 100% on the project JSON. One README **Baseline** badge covers all baseline levels (`/projects/13590/baseline`).
 
 ## README badges
 
@@ -37,6 +41,7 @@ After badge-level changes land on `main`, Scorecard refreshes on the next push t
 | --- | --- |
 | Public version control | GitHub repo; Conventional Commits ([CONTRIBUTING.md](../../CONTRIBUTING.md)) |
 | Governance | [GOVERNANCE.md](./GOVERNANCE.md) — members, roles, access review |
+| Assurance case | [ASSURANCE_CASE.md](./ASSURANCE_CASE.md) — claims mapped to SECURITY / CI evidence |
 | Release notes | [CHANGELOG.md](../../CHANGELOG.md); [RELEASING.md](./RELEASING.md) |
 | Release verification | [RELEASING.md § Verify release integrity](./RELEASING.md#verify-release-integrity-and-authenticity) |
 | API / interface docs | [API reference](https://ibexharness.com/docs/api-reference/chat-completions) |

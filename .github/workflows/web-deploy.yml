@@ -68,6 +68,22 @@ jobs:
         run: |
           pnpm exec wrangler pages project create ibex-harness-docs --production-branch=main 2>/dev/null || true
 
+      - name: Verify Cloudflare API token
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          body="$(curl -sS -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+            https://api.cloudflare.com/client/v4/user/tokens/verify || true)"
+          if ! echo "$body" | grep -q '"success":true'; then
+            echo "::error::CLOUDFLARE_API_TOKEN failed verification (Auth error 10000)."
+            echo "Create a Custom Token with Account→Cloudflare Pages:Edit and Account→Account Settings:Read,"
+            echo "then update the GitHub Actions secret. See maintainer guide: ibex-r/cloudflare-pages-token-setup.md"
+            echo "Response: $body"
+            exit 1
+          fi
+          echo "Cloudflare API token verified"
+
       - name: Deploy to Cloudflare Pages
         id: deploy
         timeout-minutes: 15
@@ -83,6 +99,9 @@ jobs:
           BASE_URL=$(grep -oE 'https://[a-zA-Z0-9.-]+\.pages\.dev' deploy.log | tail -1)
           if [ -z "$BASE_URL" ]; then
             echo "Could not parse pages.dev URL from deploy output"
+            if grep -q 'Authentication error' deploy.log; then
+              echo "::error::Wrangler auth failed. Rotate CLOUDFLARE_API_TOKEN (ibex-r/cloudflare-pages-token-setup.md)."
+            fi
             exit 1
           fi
           echo "base_url=$BASE_URL" >> "$GITHUB_OUTPUT"

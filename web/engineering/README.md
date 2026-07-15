@@ -58,7 +58,8 @@ Then use [DEVELOPMENT_GUIDE.md](DEVELOPMENT_GUIDE.md) for day-to-day workflow, P
 | [PERFORMANCE.md](PERFORMANCE.md) | Latency budgets, benchmarking, and profiling |
 | [DEPENDENCIES.md](DEPENDENCIES.md) | Dependency admission, licenses, and security SLAs |
 | [GOVERNANCE.md](GOVERNANCE.md) | Maintainers, roles, access review, OpenSSF baseline governance |
-| [OPENSSF_BEST_PRACTICES.md](OPENSSF_BEST_PRACTICES.md) | Badge evidence map (Passing + Baseline) |
+| [ASSURANCE_CASE.md](ASSURANCE_CASE.md) | Security claims mapped to evidence (Silver assurance_case) |
+| [OPENSSF_BEST_PRACTICES.md](OPENSSF_BEST_PRACTICES.md) | Badge evidence map (Passing + Baseline + Silver/Gold) |
 | [DEPLOYMENT.md](DEPLOYMENT.md) | CI/CD, environments, rollouts, rollbacks, migrations |
 | [OPS_GUIDE.md](OPS_GUIDE.md) | Health probes, Kubernetes liveness/readiness configuration |
 | [FILE_STRUCTURE.md](FILE_STRUCTURE.md) | Monorepo layout and service scaffolds |
