@@ -29,8 +29,8 @@
 
 ## Quick start
 
-- **Prerequisites**: Docker, Go, Buf, Make. See `web/engineering/TOOLCHAIN.md`.
-- **Full setup and local workflow**: `web/engineering/DEVELOPMENT_GUIDE.md`.
+- **Prerequisites**: Docker, Go, Buf, Make. See [TOOLCHAIN.md](web/engineering/TOOLCHAIN.md).
+- **Full setup and local workflow**: [DEVELOPMENT_GUIDE.md](web/engineering/DEVELOPMENT_GUIDE.md).
 
 ```bash
 git clone https://github.com/Rick1330/ibex-harness.git
@@ -43,8 +43,8 @@ make db-seed
 
 ## What to read next
 
-- **Architecture**: `web/engineering/ARCHITECTURE.md`
-- **Environment variables**: `web/engineering/ENVIRONMENT_VARIABLES.md`
-- **Contributing**: `CONTRIBUTING.md`
+- **Architecture**: [ARCHITECTURE.md](web/engineering/ARCHITECTURE.md)
+- **Environment variables**: [ENVIRONMENT_VARIABLES.md](web/engineering/ENVIRONMENT_VARIABLES.md)
+- **Contributing**: [CONTRIBUTING.md](CONTRIBUTING.md) — see [Good first issues](CONTRIBUTING.md#good-first-issues) for beginner-friendly tasks
 - **API reference**: [ibexharness.com/docs/api-reference/chat-completions](https://ibexharness.com/docs/api-reference/chat-completions) (REST + gRPC interfaces)
-- **OpenSSF Best Practices**: `web/engineering/OPENSSF_BEST_PRACTICES.md`
+- **OpenSSF Best Practices**: [OPENSSF_BEST_PRACTICES.md](web/engineering/OPENSSF_BEST_PRACTICES.md)
