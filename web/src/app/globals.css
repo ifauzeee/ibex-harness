@@ -1,8 +1,9 @@
+@import "tailwindcss";
 @import "fumadocs-ui/style.css";
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@config "../../tailwind.config.ts";
+@source "../**/*.{ts,tsx}";
+@source "../../content/**/*.{md,mdx}";
 
 /* ============================================
    LAYOUT HEIGHT TOKENS
