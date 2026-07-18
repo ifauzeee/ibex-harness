@@ -127,6 +127,40 @@ export function getPhaseCards() {
   });
 }
 
+function stripPhaseTitlePrefix(title: string): string {
+  if (!title.toLowerCase().startsWith("phase ")) return title;
+  const colon = title.indexOf(":");
+  return colon === -1 ? title : title.slice(colon + 1).trim();
+}
+
+function phaseDisplayIndex(slug: PhaseSlug): string {
+  if (slug === "phase-1-5-docs-site") return "1.5";
+  const match = /^phase-(\d+)/.exec(slug);
+  return match?.[1] ?? slug;
+}
+
+/** Timeline rows for the hub — status dots + milestone bullets (DESIGN_GUIDE §17). */
+export function getPhaseTimeline() {
+  return getPhaseCards().map((card) => {
+    const stats = getPhaseStats(card.slug as PhaseSlug);
+    const bullets = stats.milestones.slice(0, 5).map((page) => ({
+      title:
+        (typeof page.data.sidebarTitle === "string" && page.data.sidebarTitle) ||
+        page.data.title,
+      url: page.url,
+      status: normalizeStatus(page.data.status as string | undefined) ?? "planned",
+    }));
+
+    return {
+      ...card,
+      phaseIndex: phaseDisplayIndex(card.slug as PhaseSlug),
+      shortTitle: stripPhaseTitlePrefix(card.title),
+      anchor: card.slug,
+      bullets,
+    };
+  });
+}
+
 export function getRecentCompletedMilestones(limit = 5) {
   return getMilestonePages()
     .filter((page) => normalizeStatus(page.data.status as string | undefined) === "completed")

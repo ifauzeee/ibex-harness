@@ -5,6 +5,7 @@ import process from "node:process";
 import { fileURLToPath } from "node:url";
 
 import { renameIgnoreMissing } from "./build-script-utils.mjs";
+import { resolveNodeHeapMb } from "./node-heap.mjs";
 import { sanitizeRscTxtFiles } from "./sanitize-rsc-txt.mjs";
 
 const require = createRequire(import.meta.url);
@@ -26,17 +27,30 @@ if (disableCache) {
 }
 
 const existingNodeOptions = process.env.NODE_OPTIONS ?? "";
-if (!existingNodeOptions.includes("max-old-space-size")) {
-  process.env.NODE_OPTIONS = `${existingNodeOptions} --max-old-space-size=8192`.trim();
-}
+const stripped = existingNodeOptions
+  .split(/\s+/)
+  .filter(Boolean)
+  .filter(
+    (flag) =>
+      !flag.includes("max-old-space-size") &&
+      !flag.includes("max_old_space_size"),
+  )
+  .join(" ");
+const heapMb = resolveNodeHeapMb(process.env.IBEX_NODE_HEAP_MB);
+// Main process only — avoid NODE_OPTIONS inheritance into build workers.
+process.env.NODE_OPTIONS = stripped;
 
 function runNextBuild(phase) {
   console.log(`[build] ${phase}`);
-  const result = spawnSync(process.execPath, [nextBin, "build"], {
-    stdio: "inherit",
-    shell: false,
-    env: process.env,
-  });
+  const result = spawnSync(
+    process.execPath,
+    [`--max-old-space-size=${heapMb}`, nextBin, "build"],
+    {
+      stdio: "inherit",
+      shell: false,
+      env: process.env,
+    },
+  );
   if (result.status !== 0) {
     throw new Error(`${phase} failed with exit code ${result.status ?? 1}`);
   }

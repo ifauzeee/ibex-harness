@@ -1,32 +1,26 @@
 import type { ReactNode } from "react";
 
+import { cn } from "@/lib/cn";
+
 type LandingShellProps = Readonly<{
   children: ReactNode;
   className?: string;
   compact?: boolean;
-  surface?: "card" | "inset";
 }>;
 
-const surfaceClasses: Record<NonNullable<LandingShellProps["surface"]>, string> = {
-  card: "bg-card text-foreground",
-  inset: "landing-shell-inset",
-};
-
-/** Monospace command block with ascii-frame depth (landing-guide shell pattern). */
+/** Compact command block — same shell tokens as CodeShell (both themes). */
 export function LandingShell({
   children,
   className = "",
   compact = false,
-  surface = "card",
 }: LandingShellProps) {
   return (
-    <div
-      className={`ascii-frame overflow-x-auto ${surfaceClasses[surface]} ${className}`.trim()}
-    >
+    <div className={cn("code-shell", className)}>
       <pre
-        className={`m-0 overflow-x-auto font-mono leading-relaxed ${
-          compact ? "p-3 text-[11px]" : "p-4 text-[12px]"
-        }`}
+        className={cn(
+          "code-shell-body m-0",
+          compact ? "min-h-0 p-3 text-[11px]" : "min-h-0 p-4 text-[12px]",
+        )}
       >
         {children}
       </pre>

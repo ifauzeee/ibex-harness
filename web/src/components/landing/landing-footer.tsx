@@ -1,7 +1,12 @@
 import Link from "next/link";
 
-import { BrandLockup } from "@/components/brand-lockup";
-import { FOOTER_LINKS } from "@/lib/landing-content";
+import {
+  FOOTER_LINKS,
+  REPO_URL,
+  STATUS_STUB,
+} from "@/lib/landing-content";
+
+const COPYRIGHT_YEAR = 2026;
 
 function FooterLinkColumn({
   title,
@@ -11,19 +16,17 @@ function FooterLinkColumn({
   links: ReadonlyArray<{ label: string; href: string; external?: boolean }>;
 }>) {
   return (
-    <div>
-      <p className="mb-3 text-[11px] font-bold tracking-widest text-muted-foreground">
-        {title}
-      </p>
-      <nav aria-label={title} className="flex flex-col gap-2">
+    <div className="landing-footer-col">
+      <p className="landing-footer-col-label">{title}</p>
+      <nav aria-label={title} className="landing-footer-col-nav">
         {links.map((link) =>
           link.external ? (
             <a
-              key={link.href}
+              key={`${link.href}-${link.label}`}
               href={link.href}
               rel="noopener noreferrer"
               target="_blank"
-              className="text-xs text-muted-foreground transition-colors hover:text-foreground"
+              className="landing-footer-link"
             >
               {link.label}
             </a>
@@ -31,7 +34,7 @@ function FooterLinkColumn({
             <Link
               key={link.href}
               href={link.href}
-              className="text-xs text-muted-foreground transition-colors hover:text-foreground"
+              className="landing-footer-link"
             >
               {link.label}
             </Link>
@@ -42,28 +45,46 @@ function FooterLinkColumn({
   );
 }
 
+/**
+ * Footer — brand + 3 link columns + copyright strip
+ * (screenshot / DESIGN_GUIDE.md §12.8).
+ */
 export function LandingFooter() {
-  const year = new Date().getFullYear();
-
   return (
-    <footer className="border-t border-border">
-      <div className="mx-auto max-w-7xl px-5 py-10 sm:px-8">
-        <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="sm:col-span-2 lg:col-span-1">
-            <BrandLockup showWordmark="always" />
-            <p className="mt-3 max-w-xs text-xs leading-relaxed text-muted-foreground">
-              Open-source control plane for AI agents — proxy ingress, tenant
-              auth, and a memory-ready request path on ibexharness.com.
+    <footer className="landing-footer border-t border-border">
+      <div className="landing-inner landing-footer-inner">
+        <div className="landing-footer-grid">
+          <div className="landing-footer-brand">
+            <Link href="/" className="landing-footer-wordmark">
+              Ibex Harness
+            </Link>
+            <p className="landing-footer-blurb">
+              An open-source control plane for production AI agents. Built by
+              engineers, for engineers.
+            </p>
+            <p className="landing-footer-status">
+              <span className="landing-footer-status-dot" aria-hidden />
+              {STATUS_STUB}
             </p>
           </div>
           <FooterLinkColumn title="PRODUCT" links={FOOTER_LINKS.product} />
-          <FooterLinkColumn title="PROJECT" links={FOOTER_LINKS.project} />
+          <FooterLinkColumn title="COMMUNITY" links={FOOTER_LINKS.community} />
+          <FooterLinkColumn title="LEGAL" links={FOOTER_LINKS.legal} />
         </div>
-        <p className="mt-8 text-xs text-muted-foreground">
-          {"© "}
-          {year}
-          {" IBEX Harness · MIT"}
-        </p>
+
+        <div className="landing-footer-bar">
+          <span className="landing-footer-copy">
+            © {COPYRIGHT_YEAR} IBEX HARNESS — MIT
+          </span>
+          <a
+            href={REPO_URL}
+            className="landing-footer-tagline"
+            rel="noopener noreferrer"
+            target="_blank"
+          >
+            Built for the agentic age.
+          </a>
+        </div>
       </div>
     </footer>
   );

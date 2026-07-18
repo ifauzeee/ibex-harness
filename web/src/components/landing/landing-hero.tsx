@@ -1,68 +1,68 @@
 import Link from "next/link";
 
-import { IbexVideo } from "@/components/landing/ibex-video";
-import { LandingShell } from "@/components/landing/landing-shell";
-import { REPO_URL } from "@/lib/landing-content";
+import { CodeShell } from "@/components/site/code-shell";
+import { HERO_SHELL_LINES, REPO_URL } from "@/lib/landing-content";
 
+/**
+ * §01 Hero — copy left, CodeShell right (DESIGN_GUIDE.md §12.1–12.2).
+ * Shell: hidden sm, compact md, always filled lg+.
+ */
 export function LandingHero() {
   return (
-    <section id="overview" className="relative mx-auto max-w-7xl px-5 sm:px-8">
-      <div className="grid items-center gap-2 pb-16 pt-6 md:grid-cols-2 md:pb-24 md:pt-10">
-        <div className="relative order-2 flex items-center justify-center md:order-1 md:justify-start">
-          <IbexVideo />
-        </div>
-
-        <div className="order-1 md:order-2">
-          <p
-            className="animate-rise mb-5 inline-flex items-center gap-2 border border-border px-3 py-1 text-[11px] tracking-widest text-muted-foreground"
-            style={{ animationDelay: "0ms" }}
-          >
-            <span className="h-1.5 w-1.5 bg-accent" aria-hidden />
-            {" OPEN SOURCE · AI AGENT INFRASTRUCTURE"}
-          </p>
-          <h1
-            className="animate-rise text-4xl font-extrabold leading-[1.05] tracking-tight sm:text-5xl lg:text-6xl"
-            style={{ animationDelay: "60ms" }}
-          >
-            The control plane for agents that call{" "}
-            <span className="text-outline">LLMs</span> in production.
-          </h1>
-          <p
-            className="animate-rise mt-6 max-w-md text-sm leading-relaxed text-muted-foreground"
-            style={{ animationDelay: "120ms" }}
-          >
-            Intercept every model request. Validate tenant identity. Enforce
-            policy. Prepare memory context — at the proxy, not in application
-            glue code.
-          </p>
-          <div
-            className="animate-rise mt-8 flex flex-wrap items-center gap-3"
-            style={{ animationDelay: "180ms" }}
-          >
-            <Link
-              href="/docs/getting-started/introduction"
-              className="ascii-frame bg-primary px-5 py-3 text-sm font-bold text-primary-foreground transition-transform hover:-translate-y-0.5"
-            >
-              Read the docs
-            </Link>
-            <a
-              href={REPO_URL}
-              className="ascii-frame bg-paper px-5 py-3 text-sm font-bold transition-transform hover:-translate-y-0.5"
-              rel="noopener noreferrer"
-              target="_blank"
-            >
-              View on GitHub →
-            </a>
+    <section id="overview" className="border-b border-border">
+      <div className="landing-hero-inner py-24 lg:py-32">
+        <div className="grid items-center gap-12 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.95fr)] xl:gap-20">
+          <div className="min-w-0">
+            <p className="landing-eyebrow mb-5">
+              §01 · Open source · AI agent infrastructure
+            </p>
+            <h1 className="landing-h1 max-w-[16ch]">
+              The control plane for agents that call{" "}
+              <em className="italic">LLMs</em> in production.
+            </h1>
+            <p className="landing-lede mt-6 max-w-[52ch]">
+              Intercept every model request. Validate tenant identity. Enforce
+              policy. Prepare memory context — at the proxy, not in application
+              glue code.
+            </p>
+            <div className="mt-8 flex flex-wrap items-center gap-3">
+              <Link
+                href="/docs/getting-started/introduction"
+                className="btn-solid"
+              >
+                Read the docs →
+              </Link>
+              <a
+                href={REPO_URL}
+                className="btn-outline"
+                rel="noopener noreferrer"
+                target="_blank"
+              >
+                View on GitHub
+              </a>
+            </div>
           </div>
+
           <div
-            className="animate-rise"
-            style={{ animationDelay: "220ms" }}
+            className="min-w-0 max-md:hidden"
+            data-hero-shell
+            data-testid="hero-shell-column"
           >
-            <LandingShell compact className="mt-6 max-w-lg">
-            <span className="text-foreground">~ $</span>
-            {" git clone https://github.com/Rick1330/ibex-harness.git"}
-            <span className="caret ml-1">▊</span>
-          </LandingShell>
+            <CodeShell
+              title="~/ibex — zsh"
+              tag="v0.1"
+              lines={HERO_SHELL_LINES}
+              statusRight="p99 · 18ms · trace 7f3a…c21"
+              testId="hero-terminal"
+              className="w-full"
+            />
+            <div className="landing-hero-shell-meta">
+              <div className="landing-hero-shell-chip inline-flex items-center gap-2">
+                <span className="landing-hero-shell-chip-dot" aria-hidden />
+                <span>operational</span>
+              </div>
+              <div className="landing-hero-shell-chip">make up</div>
+            </div>
           </div>
         </div>
       </div>

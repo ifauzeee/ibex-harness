@@ -1,27 +1,18 @@
 import { MARQUEE } from "@/lib/landing-content";
 
-function MarqueeTrack({ trackId }: Readonly<{ trackId: string }>) {
-  return (
-    <span className="flex shrink-0" aria-hidden={trackId === "duplicate"}>
-      {MARQUEE.map((word) => (
-        <span key={`${trackId}-${word}`} className="mx-6 flex items-center gap-6">
-          {word}
-          <span className="inline-block w-3 text-center text-accent" aria-hidden>
-            ⩗
-          </span>
-        </span>
-      ))}
-    </span>
-  );
-}
-
+/** Static wrapping tag strip under hero (DESIGN_GUIDE.md §3 / §20 — no load motion). */
 export function LandingMarquee() {
   return (
-    <div className="overflow-hidden border-y border-border py-3">
-      <div className="animate-marquee flex w-max whitespace-nowrap text-xs tracking-widest text-muted-foreground">
-        <MarqueeTrack trackId="primary" />
-        <MarqueeTrack trackId="duplicate" />
-      </div>
+    <div
+      className="flex flex-wrap items-center justify-center gap-x-8 gap-y-2 border-b border-border px-4 py-3.5 font-mono text-[11px] uppercase tracking-[0.25em] text-foreground-muted"
+      aria-hidden
+    >
+      {MARQUEE.map((tag) => (
+        <span key={tag} className="inline-flex items-center gap-8">
+          {tag}
+          <span className="text-foreground-subtle">·</span>
+        </span>
+      ))}
     </div>
   );
 }

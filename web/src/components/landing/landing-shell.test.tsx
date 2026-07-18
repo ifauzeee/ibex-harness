@@ -4,15 +4,15 @@ import { describe, expect, it } from "vitest";
 import { LandingShell } from "@/components/landing/landing-shell";
 
 describe("LandingShell", () => {
-  it("renders children inside ascii-frame wrapper and pre", () => {
+  it("renders children inside shell-token wrapper and pre", () => {
     const { container } = render(
       <LandingShell>git clone ibex-harness</LandingShell>,
     );
 
     expect(screen.getByText("git clone ibex-harness")).toBeInTheDocument();
     const wrapper = container.firstElementChild;
-    expect(wrapper).toHaveClass("ascii-frame", "overflow-x-auto", "bg-card");
-    expect(wrapper?.querySelector("pre")).toHaveClass("font-mono", "p-4", "text-[12px]");
+    expect(wrapper).toHaveClass("code-shell");
+    expect(wrapper?.querySelector("pre")).toHaveClass("code-shell-body");
   });
 
   it("applies custom className on the wrapper", () => {
@@ -27,18 +27,9 @@ describe("LandingShell", () => {
     const { container } = render(
       <LandingShell compact>compact command</LandingShell>,
     );
-
     expect(container.firstElementChild?.querySelector("pre")).toHaveClass(
       "p-3",
       "text-[11px]",
     );
-  });
-
-  it("uses inset surface styling when requested", () => {
-    const { container } = render(
-      <LandingShell surface="inset">inset command</LandingShell>,
-    );
-
-    expect(container.firstElementChild).toHaveClass("landing-shell-inset");
   });
 });

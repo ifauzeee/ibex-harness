@@ -5,19 +5,22 @@ type WordmarkTextProps = Readonly<{
   className?: string;
 }>;
 
+/**
+ * Formal brand wordmark — “IBEX Harness” (IBEX caps + title-case Harness).
+ * Display serif, no casual italic-only lockup.
+ */
 export function WordmarkText({ size = "nav", className }: WordmarkTextProps) {
-  const textSize = size === "footer" ? "text-base" : "text-sm";
-
   return (
     <span
       className={cn(
-        "inline-flex items-baseline gap-0 font-semibold tracking-tight",
-        textSize,
+        "font-display font-normal tracking-[-0.015em] text-foreground",
+        size === "footer" ? "text-[1.25rem]" : "text-[1.125rem] md:text-[1.25rem]",
         className,
       )}
     >
-      <span className="text-foreground">ibex</span>
-      <span className="text-muted-foreground">harness</span>
+      <span className="tracking-[0.06em]">IBEX</span>
+      {"\u00A0"}
+      <span>Harness</span>
     </span>
   );
 }
