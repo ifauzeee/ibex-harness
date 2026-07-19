@@ -118,14 +118,6 @@ Implementation progress is tracked in [`web/content/roadmap/current-state.mdx`](
 
 Session notes and closed audits live in the **session workspace** (sibling `ibex-harness-workspace`, not in git). See §12.
 
-### 4.1.2 Windows / Docker Desktop first-run
-
-On **Windows**, note the following:
-
-- **Shell:** `make` targets require a Make-capable shell such as **Git Bash** (shipped with Git for Windows). Do not run `make` from raw `cmd.exe` or PowerShell — see [TROUBLESHOOTING.md](./TROUBLESHOOTING.md) for the `db-seed` / `psql` workaround if you do not have `psql` on `PATH`.
-- **Docker Desktop:** Ensure Docker Desktop is **running** before running `make compose-dev-up`. The command will fail with a connection error if the Docker daemon is not available.
-- **Line endings:** Git may auto-convert line endings on Windows. Use `git config core.autocrlf input` to keep LF endings consistent with CI.
-
 ### 4.1.1 Canonical local commands
 
 Use the root `Makefile` for common local tasks:
@@ -137,6 +129,14 @@ make lint-docs
 make proto-lint
 make compose-dev-up
 ```
+
+### 4.1.2 Windows / Docker Desktop first-run
+
+On **Windows**, note the following:
+
+- **Shell:** `make` targets require a Make-capable shell such as **Git Bash** (shipped with Git for Windows). Do not run `make` from raw `cmd.exe` or PowerShell — see [TROUBLESHOOTING.md](./TROUBLESHOOTING.md) for the `db-seed` / `psql` workaround if you do not have `psql` on `PATH`.
+- **Docker Desktop:** Ensure Docker Desktop is **running** before running `make compose-dev-up`. The command will fail with a connection error if the Docker daemon is not available.
+- **Line endings:** Git may auto-convert line endings on Windows. Use `git config core.autocrlf input` to keep LF endings consistent with CI.
 
 ### 4.2 Local infra
 
